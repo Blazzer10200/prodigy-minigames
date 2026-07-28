@@ -3,89 +3,150 @@
 
   let { difficulty = 'normal' } = $props()
 
-  // `normal` mirrors the documented prp-minigames default: { holeCount = 8, speed = 10 }.
-  // holeWidth is not in the public config — it's inferred from the example screenshot.
+  // Phase 1 mirrors the documented rythmClick config: { targetCount = 10, interval = 300 }.
+  // approach / window / turns / spinTime are not published — inferred, tune these first.
   const CFG = {
-    easy: { holeCount: 6, speed: 8, holeWidth: 4.5 },
-    normal: { holeCount: 8, speed: 10, holeWidth: 3.5 },
-    hard: { holeCount: 10, speed: 14, holeWidth: 2.8 }
+    easy: { targetCount: 6, interval: 400, approach: 1100, window: 190, turns: 2, spinTime: 9000 },
+    normal: {
+      targetCount: 10,
+      interval: 300,
+      approach: 950,
+      window: 150,
+      turns: 2.5,
+      spinTime: 8000
+    },
+    hard: { targetCount: 14, interval: 240, approach: 800, window: 110, turns: 3, spinTime: 6500 }
   }
+
+  const TAU = Math.PI * 2
+  const HOLES = 5
 
   const cfg = $derived(CFG[difficulty])
 
   let phase = $state('idle')
-  let holes = $state([])
+  let targets = $state([])
   let index = $state(0)
-  let cursor = $state(0)
+  let now = $state(0)
+  let spun = $state(0)
   let note = $state(null)
+  let offset = $state(0)
 
+  let dial = $state(null)
   let raf = 0
-  let prev = 0
   let runStart = 0
+  let spinStart = 0
+  let lastAngle = null
+
+  const hitAt = (i) => i * cfg.interval + cfg.approach
+
+  const visible = $derived(
+    targets
+      .map((t, i) => ({ ...t, i, progress: (now - i * cfg.interval) / cfg.approach }))
+      .filter((t) => t.i >= index && t.progress >= 0 && t.progress <= 1 + cfg.window / cfg.approach)
+  )
+
+  const spinPct = $derived(Math.min(100, (spun / (cfg.turns * TAU)) * 100))
+  const spinLeft = $derived(Math.max(0, cfg.spinTime - (now - spinStart)))
 
   function build() {
-    const first = 10
-    const last = 94
-    const slot = (last - first) / cfg.holeCount
-    const pad = cfg.holeWidth / 2 + 0.6
-
-    return Array.from({ length: cfg.holeCount }, (_, i) => {
-      const lo = first + i * slot + pad
-      const hi = first + (i + 1) * slot - pad
-      return { pos: lo + Math.random() * Math.max(0, hi - lo), state: 'pending' }
-    })
+    const out = []
+    for (let i = 0; i < cfg.targetCount; i++) {
+      let p
+      let tries = 0
+      do {
+        p = { x: 16 + Math.random() * 68, y: 16 + Math.random() * 68 }
+        tries++
+      } while (out.length && Math.hypot(p.x - out.at(-1).x, p.y - out.at(-1).y) < 22 && tries < 40)
+      out.push(p)
+    }
+    return out
   }
 
   function start() {
     cancelAnimationFrame(raf)
-    holes = build()
+    targets = build()
     index = 0
-    cursor = 0
+    now = 0
+    spun = 0
     note = null
-    phase = 'playing'
-    prev = performance.now()
-    runStart = prev
+    offset = 0
+    lastAngle = null
+    phase = 'click'
+    runStart = performance.now()
     raf = requestAnimationFrame(frame)
   }
 
   function frame(t) {
-    if (phase !== 'playing') return
+    now = t - runStart
 
-    const dt = Math.min(0.05, (t - prev) / 1000)
-    prev = t
-    cursor += cfg.speed * dt
-
-    const h = holes[index]
-    if (h && cursor > h.pos + cfg.holeWidth / 2) {
-      h.state = 'miss'
-      note = 'skipped a hole'
-      return finish(false)
-    }
-
-    if (cursor >= 100) {
-      cursor = 100
-      return finish(holes.every((x) => x.state === 'done'))
+    if (phase === 'click') {
+      if (now > hitAt(index) + cfg.window) {
+        note = 'skipped'
+        return finish(false)
+      }
+    } else if (phase === 'spin') {
+      if (now - spinStart > cfg.spinTime) {
+        note = 'spin-timeout'
+        return finish(false)
+      }
+    } else {
+      return
     }
 
     raf = requestAnimationFrame(frame)
   }
 
-  function press() {
-    if (phase !== 'playing') return
+  function hit(e, i) {
+    e.stopPropagation()
+    if (phase !== 'click') return
 
-    const h = holes[index]
-    const off = cursor - h.pos
-
-    if (Math.abs(off) > cfg.holeWidth / 2) {
-      h.state = 'miss'
-      note = off < 0 ? 'jumped the gun' : 'pushed past it'
+    // clicking out of order is a miss in its own right
+    if (i !== index) {
+      note = 'out-of-order'
       return finish(false)
     }
 
-    h.state = 'done'
-    index++
+    const err = now - hitAt(index)
+    offset = Math.round(err)
 
-    if (index >= holes.length) return finish(true)
+    if (Math.abs(err) > cfg.window) {
+      note = err < 0 ? 'early' : 'late'
+      return finish(false)
+    }
+
+    index++
+    if (index >= targets.length) {
+      phase = 'spin'
+      spinStart = now
+      lastAngle = null
+    }
+  }
+
+  function spin(e) {
+    if (phase !== 'spin' || !dial) return
+
+    const r = dial.getBoundingClientRect()
+    const dx = e.clientX - (r.left + r.width / 2)
+    const dy = e.clientY - (r.top + r.height / 2)
+
+    if (Math.hypot(dx, dy) < 26) {
+      lastAngle = null
+      return
+    }
+
+    const a = Math.atan2(dy, dx)
+
+    if (lastAngle !== null) {
+      let d = a - lastAngle
+      while (d > Math.PI) d -= TAU
+      while (d < -Math.PI) d += TAU
+
+      // screen-space y grows downward, so counter-clockwise means atan2 decreasing
+      spun = Math.max(0, spun - d)
+      if (spun >= cfg.turns * TAU) return finish(true)
+    }
+
+    lastAngle = a
   }
 
   function finish(won) {
@@ -95,11 +156,9 @@
   }
 
   function key(e) {
-    if (e.code !== 'KeyE' && e.code !== 'Space' && e.code !== 'Enter') return
+    if (e.code !== 'Space' && e.code !== 'Enter') return
     e.preventDefault()
-    if (e.repeat) return
-    if (phase === 'playing') press()
-    else start()
+    if (phase === 'idle' || phase === 'won' || phase === 'lost') start()
   }
 
   $effect(() => () => cancelAnimationFrame(raf))
@@ -109,53 +168,87 @@
 
 <div class="stage lockpick">
   <div class="hud">
-    <span>Hole <b class="mono">{Math.min(index + 1, cfg.holeCount)}</b> / {cfg.holeCount}</span>
-    <span>Speed <b class="mono">{cfg.speed}</b></span>
+    <span>
+      {#if phase === 'spin'}Spin counter-clockwise{:else}Target
+        <b class="mono">{Math.min(index + 1, cfg.targetCount)}</b> / {cfg.targetCount}{/if}
+    </span>
+    <span>
+      {#if phase === 'spin'}<b class="mono">{(spinLeft / 1000).toFixed(1)}s</b>{/if}
+    </span>
   </div>
 
-  <div class="lock" onpointerdown={press} role="presentation">
-    <div class="label">Click E to open lock</div>
+  <div class="wrap">
+    <h4>Unlock Lock</h4>
 
-    <div class="track">
-      <div class="trail" style="width: {cursor}%"></div>
+    <div class="panel" onpointermove={spin} role="presentation">
+      {#if phase === 'click'}
+        <svg class="links" viewBox="0 0 100 100">
+          {#each visible.slice(0, -1) as t, k (t.i)}
+            <line x1={t.x} y1={t.y} x2={visible[k + 1].x} y2={visible[k + 1].y} />
+          {/each}
+        </svg>
 
-      {#each holes as h, i (i)}
-        <div
-          class="hole {h.state}"
-          class:active={i === index && phase === 'playing'}
-          style="left: {h.pos}%; width: {cfg.holeWidth}%"
-        ></div>
-      {/each}
-
-      {#if phase === 'playing'}
-        <div class="cursor" style="left: {cursor}%"></div>
+        {#each visible as t (t.i)}
+          <button
+            class="target"
+            class:due={t.i === index}
+            style="left: {t.x}%; top: {t.y}%"
+            onpointerdown={(e) => hit(e, t.i)}
+            aria-label="Target {t.i + 1}"
+          >
+            <span
+              class="ring"
+              style="transform: translate(-50%, -50%) scale({Math.max(
+                1,
+                1 + 2.4 * (1 - t.progress)
+              )})"
+            ></span>
+            <span class="core"></span>
+            <span class="num mono">{t.i + 1}</span>
+          </button>
+        {/each}
+      {:else if phase === 'spin'}
+        <div class="spin" bind:this={dial}>
+          <div class="ringtrack" style="transform: rotate({-spun}rad)">
+            {#each { length: HOLES } as _, i (i)}
+              <span class="hole" style="--a: {(i / HOLES) * 360}deg"></span>
+            {/each}
+          </div>
+          <div class="pct mono">{Math.round(spinPct)}%</div>
+          <div class="spinhint">move the mouse in circles &nbsp;↺</div>
+        </div>
       {/if}
     </div>
   </div>
 
-  {#if phase !== 'playing'}
+  {#if phase === 'idle' || phase === 'won' || phase === 'lost'}
     <div class="overlay" class:win={phase === 'won'} class:lose={phase === 'lost'}>
       {#if phase === 'idle'}
         <h3>Lockpick</h3>
         <p>
-          The marker sweeps the bar once. Tap <kbd>E</kbd> as it crosses each of the {cfg.holeCount}
-          holes — press early, press late, or let one slide past and the pick snaps.
+          Click the numbered circles in order as each approach ring lands — {cfg.targetCount}
+          of them, one every {cfg.interval}ms. Clear them all and the lock drops into a spin phase:
+          swirl the mouse counter-clockwise to pop it.
         </p>
       {:else if phase === 'won'}
-        <h3>Lock Open</h3>
-        <p>All {cfg.holeCount} holes caught in one pass. Go again and keep the streak.</p>
+        <h3>Unlocked</h3>
+        <p>Clean run — all {cfg.targetCount} targets, then the spin. Go again.</p>
       {:else}
         <h3>Snapped</h3>
         <p>
-          {note === 'jumped the gun'
-            ? 'Too early — you hit E before the marker was inside the hole.'
-            : note === 'pushed past it'
-              ? 'Too late — the marker had already cleared the hole.'
-              : 'A hole went by untouched. Stay ahead of the marker and read the next gap early.'}
+          {note === 'early'
+            ? `Too early by ${Math.abs(offset)}ms — let the ring reach the circle.`
+            : note === 'late'
+              ? `Too late by ${offset}ms — commit as the ring lands, not after.`
+              : note === 'out-of-order'
+                ? 'Wrong circle. They have to go in numbered order.'
+                : note === 'spin-timeout'
+                  ? 'Ran out of time on the spin. Wider, faster circles cover more angle.'
+                  : 'A target slipped past untouched. Keep your eye on the lowest number.'}
         </p>
       {/if}
       <button class="btn" onclick={start}>{phase === 'idle' ? 'Start' : 'Retry'}</button>
-      <span class="keyhint"><kbd>E</kbd> to pick &nbsp;·&nbsp; <kbd>Space</kbd> to restart</span>
+      <span class="keyhint"><kbd>Space</kbd> to start &nbsp;·&nbsp; mouse to pick</span>
     </div>
   {/if}
 </div>
@@ -164,93 +257,152 @@
   .lockpick {
     display: grid;
     place-items: center;
-    aspect-ratio: 16 / 6;
-    padding: 54px 40px 34px;
+    aspect-ratio: 16 / 10;
+    padding: 52px 24px 24px;
+    background: linear-gradient(180deg, #1b1d19 0%, #131511 100%);
   }
 
-  .lock {
-    z-index: 2;
+  .wrap {
     display: grid;
     justify-items: center;
-    gap: 22px;
-    width: 100%;
-    cursor: pointer;
+    gap: 14px;
+    height: 100%;
+    z-index: 2;
   }
 
-  .label {
-    padding: 7px 16px;
-    border-radius: 6px;
-    background: #10161ee6;
-    box-shadow: 0 2px 10px #0008;
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: 0.09em;
+  h4 {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #dfe7f0;
+    color: #f2f7ee;
+    text-shadow: 0 0 14px #8ede4a4d;
   }
 
-  .track {
+  .panel {
     position: relative;
-    width: 100%;
-    height: 46px;
-    border-radius: 5px;
-    background: #3f4750;
-    box-shadow: inset 0 2px 6px #0006;
+    aspect-ratio: 1;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 16px;
+    background: #171a15;
+    box-shadow: inset 0 0 40px #0000004d;
   }
 
-  .trail {
+  .links {
     position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    border-radius: 5px 0 0 5px;
-    background: linear-gradient(180deg, #7cc63c, #5ea62b);
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .links line {
+    stroke: #8ede4a66;
+    stroke-width: 0.4;
+  }
+
+  .target {
+    position: absolute;
+    z-index: 2;
+    width: 74px;
+    height: 74px;
+    margin: -37px 0 0 -37px;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .core,
+  .ring,
+  .num {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .core {
+    width: 74px;
+    height: 74px;
+    border: 3px solid #8ede4a;
+    border-radius: 50%;
+    background: radial-gradient(circle, #1f2a17 40%, #141810 100%);
+    box-shadow:
+      0 0 22px -4px #8ede4aaa,
+      inset 0 0 14px -4px #8ede4a66;
+  }
+
+  .ring {
+    width: 74px;
+    height: 74px;
+    border: 2px solid #a8e86bcc;
+    border-radius: 50%;
+    will-change: transform;
+  }
+
+  .target.due .core {
+    border-color: #b6f562;
+    box-shadow:
+      0 0 30px -2px #b6f562,
+      inset 0 0 16px -4px #b6f56288;
+  }
+
+  .num {
+    font-size: 21px;
+    font-weight: 600;
+    color: #eef6e4;
+    pointer-events: none;
+  }
+
+  /* ---- spin phase ---- */
+
+  .spin {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 10px;
+  }
+
+  .ringtrack {
+    position: relative;
+    width: 210px;
+    height: 210px;
+    border: 22px solid #ffffff12;
+    border-radius: 50%;
+    will-change: transform;
   }
 
   .hole {
     position: absolute;
     top: 50%;
-    height: 30px;
-    transform: translate(-50%, -50%);
-    border-radius: 4px;
-    background: #14181d;
-    box-shadow: inset 0 1px 3px #000a;
-    transition: background 0.09s linear;
+    left: 50%;
+    width: 34px;
+    height: 34px;
+    margin: -17px 0 0 -17px;
+    border-radius: 50%;
+    background: #10140d;
+    box-shadow: inset 0 1px 4px #000a;
+    transform: rotate(var(--a)) translateY(-105px);
   }
 
-  .hole.active {
-    background: #c81f28;
-    box-shadow: 0 0 12px -2px #ff4d5e99;
-  }
-
-  .hole.done {
-    background: #8ede4a;
-  }
-
-  .hole.miss {
-    background: #ff4d5e;
-    box-shadow: 0 0 16px -2px #ff4d5e;
-  }
-
-  .cursor {
+  .pct {
     position: absolute;
-    top: -6px;
-    bottom: -6px;
-    width: 10px;
-    margin-left: -5px;
-    border-radius: 3px;
-    background: #a6ef4f;
-    box-shadow: 0 0 14px 1px #a6ef4fcc;
-    will-change: left;
+    font-size: 34px;
+    font-weight: 700;
+    color: #b6f562;
+    text-shadow: 0 0 18px #8ede4a66;
   }
 
-  .overlay kbd {
-    padding: 2px 7px;
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    background: #0e141d;
-    font-family: inherit;
-    font-size: 0.9em;
-    color: var(--text);
+  .spinhint {
+    position: absolute;
+    bottom: -14px;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #6f7d63;
+    white-space: nowrap;
   }
 </style>

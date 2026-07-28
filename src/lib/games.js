@@ -9,7 +9,7 @@ export const games = [
     tag: 'Vehicle entry',
     component: Lockpick,
     blurb:
-      'A marker sweeps the bar once, left to right. Tap E as it crosses each hole — early, late, or a skipped hole all snap the pick. Built to the documented server config: 8 holes at speed 10. The sweep never changes pace, so read the gap to the next hole rather than watching the marker.'
+      'Two phases. First the rythmClick board — 10 numbered circles, one spawning every 300ms, each clicked as its approach ring lands. Clear them and the lock drops into a spin: swirl the mouse counter-clockwise until it pops. Targets arrive on a fixed beat, so ride the rhythm instead of chasing each ring.'
   },
   {
     id: 'thermite',
