@@ -24,7 +24,10 @@ export function bucket(id) {
 }
 
 export function record(id, won, ms) {
-  const b = (stats[id] ??= { ...EMPTY, recent: [] })
+  // must not be `stats[id] ??= ...` — that evaluates to the raw object rather than the
+  // state proxy, so the first attempt on each game would mutate untracked
+  if (!stats[id]) stats[id] = { ...EMPTY, recent: [] }
+  const b = stats[id]
   b.attempts++
   if (won) {
     b.wins++

@@ -9,7 +9,7 @@ export const games = [
     tag: 'Vehicle entry',
     component: Lockpick,
     blurb:
-      'Circles appear one at a time with a shrinking approach ring. Click the moment the ring meets the circle — too early or too late snaps the pick. The ring speed is constant, so once you find the beat on the first pin the same rhythm clears the rest.'
+      'A marker sweeps the bar once, left to right. Tap E as it crosses each hole — early, late, or a skipped hole all snap the pick. Built to the documented server config: 8 holes at speed 10. The sweep never changes pace, so read the gap to the next hole rather than watching the marker.'
   },
   {
     id: 'thermite',

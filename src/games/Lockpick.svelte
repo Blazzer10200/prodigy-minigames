@@ -3,89 +3,89 @@
 
   let { difficulty = 'normal' } = $props()
 
+  // `normal` mirrors the documented prp-minigames default: { holeCount = 8, speed = 10 }.
+  // holeWidth is not in the public config — it's inferred from the example screenshot.
   const CFG = {
-    easy: { pins: 4, approach: 1100, perfect: 90, good: 190 },
-    normal: { pins: 5, approach: 850, perfect: 65, good: 140 },
-    hard: { pins: 7, approach: 620, perfect: 45, good: 100 }
+    easy: { holeCount: 6, speed: 8, holeWidth: 4.5 },
+    normal: { holeCount: 8, speed: 10, holeWidth: 3.5 },
+    hard: { holeCount: 10, speed: 14, holeWidth: 2.8 }
   }
-  const RING = 3.2
 
   const cfg = $derived(CFG[difficulty])
 
   let phase = $state('idle')
-  let pins = $state([])
+  let holes = $state([])
   let index = $state(0)
-  let progress = $state(0)
-  let grade = $state(null)
-  let offset = $state(0)
+  let cursor = $state(0)
+  let note = $state(null)
 
   let raf = 0
-  let pinStart = 0
+  let prev = 0
   let runStart = 0
 
-  const ringScale = $derived(Math.max(0.72, 1 + (RING - 1) * (1 - progress)))
-  const current = $derived(pins[index])
-
   function build() {
-    const out = []
-    let prev = null
-    for (let i = 0; i < cfg.pins; i++) {
-      let p
-      // keep consecutive pins apart so it stays a flick, not a double-tap
-      do {
-        p = { x: 12 + Math.random() * 76, y: 16 + Math.random() * 68 }
-      } while (prev && Math.hypot(p.x - prev.x, p.y - prev.y) < 26)
-      out.push(p)
-      prev = p
-    }
-    return out
+    const first = 10
+    const last = 94
+    const slot = (last - first) / cfg.holeCount
+    const pad = cfg.holeWidth / 2 + 0.6
+
+    return Array.from({ length: cfg.holeCount }, (_, i) => {
+      const lo = first + i * slot + pad
+      const hi = first + (i + 1) * slot - pad
+      return { pos: lo + Math.random() * Math.max(0, hi - lo), state: 'pending' }
+    })
   }
 
   function start() {
     cancelAnimationFrame(raf)
-    pins = build()
+    holes = build()
     index = 0
-    grade = null
-    offset = 0
+    cursor = 0
+    note = null
     phase = 'playing'
-    runStart = performance.now()
-    nextPin()
-  }
-
-  function nextPin() {
-    if (index >= pins.length) return finish(true)
-    progress = 0
-    pinStart = performance.now()
+    prev = performance.now()
+    runStart = prev
     raf = requestAnimationFrame(frame)
   }
 
   function frame(t) {
     if (phase !== 'playing') return
-    progress = (t - pinStart) / cfg.approach
-    if (progress > 1 + cfg.good / cfg.approach) {
-      offset = Math.round(cfg.good)
-      grade = 'TOO LATE'
+
+    const dt = Math.min(0.05, (t - prev) / 1000)
+    prev = t
+    cursor += cfg.speed * dt
+
+    const h = holes[index]
+    if (h && cursor > h.pos + cfg.holeWidth / 2) {
+      h.state = 'miss'
+      note = 'skipped a hole'
       return finish(false)
     }
+
+    if (cursor >= 100) {
+      cursor = 100
+      return finish(holes.every((x) => x.state === 'done'))
+    }
+
     raf = requestAnimationFrame(frame)
   }
 
-  function hit(e) {
-    e.stopPropagation()
+  function press() {
     if (phase !== 'playing') return
 
-    const err = (progress - 1) * cfg.approach
-    offset = Math.round(err)
+    const h = holes[index]
+    const off = cursor - h.pos
 
-    if (Math.abs(err) > cfg.good) {
-      grade = err < 0 ? 'TOO EARLY' : 'TOO LATE'
+    if (Math.abs(off) > cfg.holeWidth / 2) {
+      h.state = 'miss'
+      note = off < 0 ? 'jumped the gun' : 'pushed past it'
       return finish(false)
     }
 
-    grade = Math.abs(err) <= cfg.perfect ? 'PERFECT' : 'GOOD'
-    cancelAnimationFrame(raf)
+    h.state = 'done'
     index++
-    nextPin()
+
+    if (index >= holes.length) return finish(true)
   }
 
   function finish(won) {
@@ -95,9 +95,11 @@
   }
 
   function key(e) {
-    if (e.code !== 'Space' && e.code !== 'Enter') return
+    if (e.code !== 'KeyE' && e.code !== 'Space' && e.code !== 'Enter') return
     e.preventDefault()
-    if (phase !== 'playing') start()
+    if (e.repeat) return
+    if (phase === 'playing') press()
+    else start()
   }
 
   $effect(() => () => cancelAnimationFrame(raf))
@@ -107,108 +109,148 @@
 
 <div class="stage lockpick">
   <div class="hud">
-    <span>Pin <b class="mono">{Math.min(index + 1, cfg.pins)}</b> / {cfg.pins}</span>
-    {#if grade}
-      <span class="grade" class:ok={grade === 'PERFECT' || grade === 'GOOD'}>
-        {grade}
-        {#if grade !== 'PERFECT'}<b class="mono">{offset > 0 ? '+' : ''}{offset}ms</b>{/if}
-      </span>
-    {/if}
+    <span>Hole <b class="mono">{Math.min(index + 1, cfg.holeCount)}</b> / {cfg.holeCount}</span>
+    <span>Speed <b class="mono">{cfg.speed}</b></span>
   </div>
 
-  {#if phase === 'playing' && current}
-    <button
-      class="pin"
-      style="left:{current.x}%; top:{current.y}%"
-      onpointerdown={hit}
-      aria-label="Hit pin {index + 1}"
-    >
-      <span class="ring" style="transform: translate(-50%, -50%) scale({ringScale})"></span>
-      <span class="core"></span>
-      <span class="num mono">{index + 1}</span>
-    </button>
-  {/if}
+  <div class="lock" onpointerdown={press} role="presentation">
+    <div class="label">Click E to open lock</div>
+
+    <div class="track">
+      <div class="trail" style="width: {cursor}%"></div>
+
+      {#each holes as h, i (i)}
+        <div
+          class="hole {h.state}"
+          class:active={i === index && phase === 'playing'}
+          style="left: {h.pos}%; width: {cfg.holeWidth}%"
+        ></div>
+      {/each}
+
+      {#if phase === 'playing'}
+        <div class="cursor" style="left: {cursor}%"></div>
+      {/if}
+    </div>
+  </div>
 
   {#if phase !== 'playing'}
     <div class="overlay" class:win={phase === 'won'} class:lose={phase === 'lost'}>
       {#if phase === 'idle'}
         <h3>Lockpick</h3>
         <p>
-          Click each circle exactly as the outer ring closes onto it. {cfg.pins} pins, no second
-          chances — one bad click and the pick snaps.
+          The marker sweeps the bar once. Tap <kbd>E</kbd> as it crosses each of the {cfg.holeCount}
+          holes — press early, press late, or let one slide past and the pick snaps.
         </p>
       {:else if phase === 'won'}
-        <h3>Unlocked</h3>
-        <p>All {cfg.pins} pins cleared. Run it again and try to keep the streak alive.</p>
+        <h3>Lock Open</h3>
+        <p>All {cfg.holeCount} holes caught in one pass. Go again and keep the streak.</p>
       {:else}
         <h3>Snapped</h3>
         <p>
-          {grade === 'TOO EARLY'
-            ? 'You committed before the ring landed. Let it come all the way in.'
-            : 'You waited too long. Press as the ring reaches the circle, not after.'}
+          {note === 'jumped the gun'
+            ? 'Too early — you hit E before the marker was inside the hole.'
+            : note === 'pushed past it'
+              ? 'Too late — the marker had already cleared the hole.'
+              : 'A hole went by untouched. Stay ahead of the marker and read the next gap early.'}
         </p>
       {/if}
       <button class="btn" onclick={start}>{phase === 'idle' ? 'Start' : 'Retry'}</button>
-      <span class="keyhint"><kbd>Space</kbd> to start &nbsp;·&nbsp; mouse to hit</span>
+      <span class="keyhint"><kbd>E</kbd> to pick &nbsp;·&nbsp; <kbd>Space</kbd> to restart</span>
     </div>
   {/if}
 </div>
 
 <style>
   .lockpick {
-    aspect-ratio: 16 / 9;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 16 / 6;
+    padding: 54px 40px 34px;
   }
 
-  .grade {
-    display: inline-flex;
-    gap: 8px;
-    color: var(--bad);
-  }
-
-  .grade.ok {
-    color: var(--good);
-  }
-
-  .pin {
-    position: absolute;
+  .lock {
     z-index: 2;
-    width: 86px;
-    height: 86px;
-    margin: -43px 0 0 -43px;
-    padding: 0;
-    border-radius: 50%;
+    display: grid;
+    justify-items: center;
+    gap: 22px;
+    width: 100%;
+    cursor: pointer;
   }
 
-  .core,
-  .ring,
-  .num {
+  .label {
+    padding: 7px 16px;
+    border-radius: 6px;
+    background: #10161ee6;
+    box-shadow: 0 2px 10px #0008;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: #dfe7f0;
+  }
+
+  .track {
+    position: relative;
+    width: 100%;
+    height: 46px;
+    border-radius: 5px;
+    background: #3f4750;
+    box-shadow: inset 0 2px 6px #0006;
+  }
+
+  .trail {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    border-radius: 5px 0 0 5px;
+    background: linear-gradient(180deg, #7cc63c, #5ea62b);
+  }
+
+  .hole {
     position: absolute;
     top: 50%;
-    left: 50%;
+    height: 30px;
     transform: translate(-50%, -50%);
+    border-radius: 4px;
+    background: #14181d;
+    box-shadow: inset 0 1px 3px #000a;
+    transition: background 0.09s linear;
   }
 
-  .core {
-    width: 86px;
-    height: 86px;
-    border: 3px solid var(--accent);
-    border-radius: 50%;
-    background: radial-gradient(circle, #35e0ff33 0%, #35e0ff0d 70%);
-    box-shadow: 0 0 24px -4px #35e0ff80;
+  .hole.active {
+    background: #c81f28;
+    box-shadow: 0 0 12px -2px #ff4d5e99;
   }
 
-  .ring {
-    width: 86px;
-    height: 86px;
-    border: 2px solid #ffffffb0;
-    border-radius: 50%;
-    will-change: transform;
+  .hole.done {
+    background: #8ede4a;
   }
 
-  .num {
-    font-size: 22px;
-    font-weight: 600;
+  .hole.miss {
+    background: #ff4d5e;
+    box-shadow: 0 0 16px -2px #ff4d5e;
+  }
+
+  .cursor {
+    position: absolute;
+    top: -6px;
+    bottom: -6px;
+    width: 10px;
+    margin-left: -5px;
+    border-radius: 3px;
+    background: #a6ef4f;
+    box-shadow: 0 0 14px 1px #a6ef4fcc;
+    will-change: left;
+  }
+
+  .overlay kbd {
+    padding: 2px 7px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: #0e141d;
+    font-family: inherit;
+    font-size: 0.9em;
     color: var(--text);
-    pointer-events: none;
   }
 </style>
