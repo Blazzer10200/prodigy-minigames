@@ -1,5 +1,5 @@
 <script>
-  import { games, groups } from './lib/games.js'
+  import { games, groups, DIFFICULTIES } from './lib/games.js'
   import { bucket, rate, avg, reset } from './lib/stats.svelte.js'
 
   let activeId = $state(games[0].id)
@@ -35,7 +35,7 @@
     <div class="group">
       <label for="diff">Difficulty</label>
       <div class="seg" id="diff">
-        {#each ['easy', 'normal', 'hard'] as d (d)}
+        {#each DIFFICULTIES as d (d)}
           <button class:on={difficulty === d} onclick={() => (difficulty = d)}>{d}</button>
         {/each}
       </div>

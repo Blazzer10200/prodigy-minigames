@@ -1,3 +1,7 @@
+/* ---------------------------------------------------------------
+   Design tokens
+   --------------------------------------------------------------- */
+
 :root {
   --bg: #080b10;
   --panel: #111823;
@@ -10,20 +14,24 @@
   --bad: #ff4d5e;
   --warn: #ffb545;
 
+  /* every stage reserves this much room for the HUD strip and its edges */
+  --pad-top: 52px;
+  --pad: 20px;
+
   color-scheme: dark;
-  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
   color: var(--text);
   background: var(--bg);
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(1100px 600px at 78% -8%, #12293a 0%, transparent 60%),
-    var(--bg);
+  background: radial-gradient(1100px 600px at 78% -8%, #12293a 0%, transparent 60%), var(--bg);
 }
 
 button {
@@ -35,21 +43,57 @@ button {
 }
 
 .mono {
-  font-family: "JetBrains Mono", "Cascadia Mono", ui-monospace, monospace;
+  font-family: 'JetBrains Mono', 'Cascadia Mono', ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
 }
 
-/* ---------- shared game stage ---------- */
+/* ---------------------------------------------------------------
+   Game stage
+
+   A stage is a fixed-aspect box. Everything inside is measured
+   against THAT box, never against the browser window — sizing a
+   game in vh or fixed px is what made content spill out of frame.
+
+   Use `.field` for the playable area and `.square` for anything
+   that has to stay a square (grids, dials). Both fit by
+   construction, at any stage size.
+   --------------------------------------------------------------- */
 
 .stage {
   position: relative;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background:
-    linear-gradient(180deg, #0f1620 0%, #0a0f16 100%);
-  box-shadow: inset 0 1px 0 #ffffff0d, 0 24px 60px -30px #000;
+  background: linear-gradient(180deg, #0f1620 0%, #0a0f16 100%);
+  box-shadow:
+    inset 0 1px 0 #ffffff0d,
+    0 24px 60px -30px #000;
   user-select: none;
+}
+
+.field {
+  position: absolute;
+  inset: var(--pad-top) var(--pad) var(--pad);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  /* size is set entirely by the inset above, so it is safe to make this a
+     query container — that lets game text scale with the frame, not the window */
+  container-type: size;
+}
+
+.square {
+  height: 100%;
+  max-width: 100%;
+  aspect-ratio: 1;
+}
+
+/* An svg with a viewBox scales itself down to fit its box, so a dial
+   drawn this way can never overflow no matter how the shell changes. */
+.fitsvg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .hud {
@@ -64,10 +108,32 @@ button {
   text-transform: uppercase;
   color: var(--muted);
   pointer-events: none;
-  z-index: 3;
+  z-index: 4;
 }
 
-.hud b { color: var(--text); font-weight: 600; }
+.hud b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.timer {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: #ffffff10;
+  z-index: 4;
+}
+
+.timer i {
+  display: block;
+  height: 100%;
+  transform-origin: left;
+  background: linear-gradient(90deg, var(--accent), var(--warn));
+}
+
+/* ---------------------------------------------------------------
+   Overlay
+   --------------------------------------------------------------- */
 
 .overlay {
   position: absolute;
@@ -77,29 +143,41 @@ button {
   place-content: center;
   justify-items: center;
   gap: 14px;
-  text-align: center;
   padding: 24px;
+  text-align: center;
   background: #060910d9;
   backdrop-filter: blur(3px);
+  animation: fade 0.2s ease both;
 }
 
 .overlay h3 {
   margin: 0;
-  font-size: 30px;
+  font-size: clamp(22px, 3.4vw, 30px);
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  animation: rise 0.28s cubic-bezier(0.2, 0.9, 0.3, 1) both;
 }
 
 .overlay p {
   margin: 0;
-  max-width: 44ch;
+  max-width: 46ch;
   color: var(--muted);
   font-size: 14px;
   line-height: 1.6;
+  animation: rise 0.28s cubic-bezier(0.2, 0.9, 0.3, 1) 0.04s both;
 }
 
-.overlay.win h3 { color: var(--good); }
-.overlay.lose h3 { color: var(--bad); }
+.overlay .btn,
+.overlay .keyhint {
+  animation: rise 0.28s cubic-bezier(0.2, 0.9, 0.3, 1) 0.08s both;
+}
+
+.overlay.win h3 {
+  color: var(--good);
+}
+.overlay.lose h3 {
+  color: var(--bad);
+}
 
 .btn {
   padding: 11px 26px;
@@ -110,11 +188,20 @@ button {
   text-transform: uppercase;
   color: #04121a;
   background: var(--accent);
-  transition: transform 0.12s ease, filter 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.16s ease,
+    filter 0.12s ease;
 }
 
-.btn:hover { filter: brightness(1.12); }
-.btn:active { transform: scale(0.97); }
+.btn:hover {
+  filter: brightness(1.12);
+  box-shadow: 0 6px 22px -8px var(--accent);
+}
+
+.btn:active {
+  transform: scale(0.96);
+}
 
 .keyhint {
   font-size: 11px;
@@ -123,79 +210,106 @@ button {
   color: #55657c;
 }
 
-.keyhint kbd {
+kbd {
   padding: 2px 7px;
   border: 1px solid var(--line);
   border-radius: 5px;
   background: #0e141d;
   font-family: inherit;
+  font-size: 0.92em;
+  color: var(--muted);
 }
 
-/* ---------- layout ---------- */
+/* ---------------------------------------------------------------
+   Shell
+   --------------------------------------------------------------- */
 
 .app {
   display: grid;
-  grid-template-columns: 268px minmax(0, 1fr);
-  gap: 28px;
-  max-width: 1240px;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 30px;
+  max-width: 1300px;
   margin: 0 auto;
-  padding: 34px 28px 48px;
+  padding: 32px 28px 48px;
 }
 
 aside {
   align-self: start;
   position: sticky;
-  top: 34px;
+  top: 32px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
 .brand h1 {
   margin: 0;
-  font-size: 21px;
+  font-size: 20px;
   letter-spacing: 0.02em;
 }
 
-.brand h1 span { color: var(--accent); }
+.brand h1 span {
+  color: var(--accent);
+}
 
 .brand p {
   margin: 3px 0 0;
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
-nav { display: flex; flex-direction: column; gap: 6px; }
+nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 11px 14px;
+  gap: 1px;
+  padding: 8px 12px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 9px;
   text-align: left;
-  transition: background 0.14s ease, border-color 0.14s ease;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    transform 0.16s ease;
 }
 
-.nav strong { font-size: 14px; font-weight: 600; }
-.nav em { font-style: normal; font-size: 11px; color: var(--muted); }
-.nav:hover { background: #ffffff08; }
+.nav strong {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.nav em {
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.nav:hover {
+  background: #ffffff08;
+  transform: translateX(2px);
+}
 
 .nav.on {
   border-color: #35e0ff40;
   background: linear-gradient(90deg, #35e0ff1f, transparent);
 }
 
-.nav.on strong { color: var(--accent); }
+.nav.on strong {
+  color: var(--accent);
+}
 
 .group > label,
 .group > h3 {
   display: block;
-  margin: 0 0 8px;
-  font-size: 11px;
+  margin: 0 0 7px;
+  font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -203,8 +317,8 @@ nav { display: flex; flex-direction: column; gap: 6px; }
 }
 
 .group > h3 {
-  cursor: help;
   align-self: flex-start;
+  cursor: help;
   border-bottom: 1px dotted #2b3a4d;
 }
 
@@ -219,16 +333,25 @@ nav { display: flex; flex-direction: column; gap: 6px; }
 }
 
 .seg button {
-  padding: 7px 0;
+  padding: 6px 0;
   border-radius: 7px;
   font-size: 12px;
   text-transform: capitalize;
   color: var(--muted);
-  transition: background 0.14s ease, color 0.14s ease;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
 }
 
-.seg button:hover { color: var(--text); }
-.seg button.on { background: #35e0ff1f; color: var(--accent); font-weight: 600; }
+.seg button:hover {
+  color: var(--text);
+}
+
+.seg button.on {
+  background: #35e0ff1f;
+  color: var(--accent);
+  font-weight: 600;
+}
 
 .stats {
   display: flex;
@@ -244,25 +367,35 @@ nav { display: flex; flex-direction: column; gap: 6px; }
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: 9px 13px;
+  padding: 7px 12px;
   background: var(--panel);
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
-.stat span { color: var(--muted); }
-.stat b { font-weight: 600; }
+.stat span {
+  color: var(--muted);
+}
+
+.stat b {
+  font-weight: 600;
+}
 
 .reset {
   align-self: flex-start;
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #55657c;
+  transition: color 0.16s ease;
 }
 
-.reset:hover { color: var(--bad); }
+.reset:hover {
+  color: var(--bad);
+}
 
-main header { margin-bottom: 18px; }
+main header {
+  margin-bottom: 16px;
+}
 
 .title {
   display: flex;
@@ -273,28 +406,66 @@ main header { margin-bottom: 18px; }
 
 main header h2 {
   margin: 0;
-  font-size: 24px;
+  font-size: 23px;
   letter-spacing: 0.01em;
 }
 
 .cfg {
-  padding: 4px 10px;
+  padding: 3px 9px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--panel-2);
-  font-size: 11.5px;
+  font-size: 11px;
   color: #6f8299;
 }
 
 main header p {
   margin: 6px 0 0;
-  max-width: 68ch;
+  max-width: 72ch;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13.5px;
   line-height: 1.6;
 }
 
-@media (max-width: 880px) {
-  .app { grid-template-columns: 1fr; }
-  aside { position: static; }
+/* ---------------------------------------------------------------
+   Motion
+   --------------------------------------------------------------- */
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.45);
+  }
+}
+
+@media (max-width: 900px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+  aside {
+    position: static;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

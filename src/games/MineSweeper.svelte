@@ -134,23 +134,25 @@
     </span>
   </div>
 
-  <div class="grid" style="--n: {cfg.x}">
-    {#each cells as c, i (i)}
-      <button
-        class="cell"
-        class:open={c.open}
-        class:mine={c.open && c.mine}
-        class:blown={c.blown}
-        class:flag={c.flag}
-        data-n={c.open && !c.mine && c.near ? c.near : ''}
-        disabled={phase !== 'playing'}
-        onclick={() => open(i)}
-        oncontextmenu={(e) => flag(e, i)}
-        aria-label="Cell {i + 1}"
-      >
-        {#if c.open && c.mine}✳{:else if c.flag}⚑{:else if c.open && c.near}{c.near}{/if}
-      </button>
-    {/each}
+  <div class="field">
+    <div class="grid square" style="--n: {cfg.x}">
+      {#each cells as c, i (i)}
+        <button
+          class="cell"
+          class:open={c.open}
+          class:mine={c.open && c.mine}
+          class:blown={c.blown}
+          class:flag={c.flag}
+          data-n={c.open && !c.mine && c.near ? c.near : ''}
+          disabled={phase !== 'playing'}
+          onclick={() => open(i)}
+          oncontextmenu={(e) => flag(e, i)}
+          aria-label="Cell {i + 1}"
+        >
+          {#if c.open && c.mine}✳{:else if c.flag}⚑{:else if c.open && c.near}{c.near}{/if}
+        </button>
+      {/each}
+    </div>
   </div>
 
   {#if phase !== 'playing'}
@@ -158,15 +160,17 @@
       {#if phase === 'idle'}
         <h3>Minesweeper</h3>
         <p>
-          Standard rules on a {cfg.x}×{cfg.y} board with {cfg.mines} mines. Left click clears, right
-          click flags. Your first click is always safe.
+          Standard rules on a {cfg.x}×{cfg.y} board with {cfg.mines} mines. Left click clears, right click
+          flags. Your first click is always safe.
         </p>
       {:else if phase === 'won'}
         <h3>Board Clear</h3>
         <p>Every safe tile opened in {(elapsed / 1000).toFixed(1)}s.</p>
       {:else}
         <h3>Detonated</h3>
-        <p>Hit a mine. Work the numbers off a known-safe edge instead of guessing into open space.</p>
+        <p>
+          Hit a mine. Work the numbers off a known-safe edge instead of guessing into open space.
+        </p>
       {/if}
       <button class="btn" onclick={start}>{phase === 'idle' ? 'Start' : 'Retry'}</button>
       <span class="keyhint">left click clears &nbsp;·&nbsp; right click flags</span>
@@ -176,19 +180,13 @@
 
 <style>
   .sweeper {
-    display: grid;
-    place-content: center;
     aspect-ratio: 16 / 10;
-    padding: 54px 24px 24px;
   }
 
   .grid {
     display: grid;
     grid-template-columns: repeat(var(--n), 1fr);
     gap: 3px;
-    width: min(100%, 60vh);
-    aspect-ratio: 1;
-    z-index: 2;
   }
 
   .cell {
@@ -198,12 +196,17 @@
     border: 1px solid #26313f;
     border-radius: 4px;
     background: #172130;
-    font-size: clamp(10px, 1.5vw, 17px);
+    font-size: min(3.4cqmin, 18px);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     transition:
-      background 0.1s ease,
-      border-color 0.1s ease;
+      background 0.12s ease,
+      border-color 0.12s ease,
+      transform 0.12s ease;
+  }
+
+  .cell:not(:disabled):active {
+    transform: scale(0.92);
   }
 
   .cell:not(:disabled):hover {

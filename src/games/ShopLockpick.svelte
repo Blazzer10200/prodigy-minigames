@@ -3,21 +3,26 @@
 
   let { difficulty = 'normal' } = $props()
 
-  // normal mirrors the documented config: { holeCount = 12, speed = "Math.PI/1.5", bounce = false }
+  // normal is the documented config: { holeCount = 12, speed = Math.PI/1.5, bounce = false }
   const CFG = {
     easy: { holes: 8, speed: Math.PI / 2.4, window: 0.24, limit: 40000 },
     normal: { holes: 12, speed: Math.PI / 1.5, window: 0.17, limit: 35000 },
     hard: { holes: 14, speed: Math.PI / 1.05, window: 0.12, limit: 30000 }
   }
 
+  const C = 200
+  const R = 176
+  const RING = 128
+  const HR = 22
   const TAU = Math.PI * 2
+
   const cfg = $derived(CFG[difficulty])
 
   let phase = $state('idle')
   let angle = $state(0)
   let index = $state(0)
   let done = $state([])
-  let note = $state(null)
+  let reason = $state(null)
   let remain = $state(0)
 
   let raf = 0
@@ -27,8 +32,11 @@
   const slot = $derived(TAU / cfg.holes)
   const bar = $derived(Math.max(0, Math.min(1, remain / cfg.limit)))
 
-  // signed distance from the marker to the hole we currently want, wrapped to [-PI, PI]
-  function delta() {
+  // angles start at 12 o'clock so the first hole is straight up
+  const at = (i) => i * slot - Math.PI / 2
+
+  // signed gap from the marker to the hole we want, wrapped to [-PI, PI]
+  function gap() {
     let d = angle - index * slot
     while (d > Math.PI) d -= TAU
     while (d < -Math.PI) d += TAU
@@ -40,7 +48,7 @@
     angle = -slot * 0.75
     index = 0
     done = []
-    note = null
+    reason = null
     remain = cfg.limit
     phase = 'playing'
     prev = performance.now()
@@ -59,7 +67,7 @@
     remain = cfg.limit - (t - runStart)
     if (remain <= 0) {
       remain = 0
-      note = 'timeout'
+      reason = 'time'
       return finish(false)
     }
 
@@ -69,15 +77,15 @@
   function press() {
     if (phase !== 'playing') return
 
-    const d = delta()
+    const d = gap()
     if (Math.abs(d) > cfg.window) {
-      note = d < 0 ? 'early' : 'late'
+      reason = d < 0 ? 'early' : 'late'
       return finish(false)
     }
 
     done = [...done, index]
     index++
-    if (index >= cfg.holes) return finish(true)
+    if (index >= cfg.holes) finish(true)
   }
 
   function finish(won) {
@@ -102,27 +110,52 @@
 <div class="stage shoplock" onpointerdown={press} role="presentation">
   <div class="hud">
     <span>Hole <b class="mono">{Math.min(index + 1, cfg.holes)}</b> / {cfg.holes}</span>
-    <span>
-      {#if phase === 'playing'}<b class="mono">{(remain / 1000).toFixed(1)}s</b>{/if}
-    </span>
+    {#if phase === 'playing'}
+      <span><b class="mono">{(remain / 1000).toFixed(1)}s</b></span>
+    {/if}
   </div>
 
   {#if phase === 'playing'}
     <div class="timer"><i style="transform: scaleX({bar})"></i></div>
   {/if}
 
-  <div class="label">Click E to open lock</div>
+  <div class="field">
+    <svg class="fitsvg" viewBox="0 0 400 400" aria-label="Shop lockpick barrel">
+      <defs>
+        <filter id="sl-glow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="3.5" result="b" />
+          <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
 
-  <div class="ring">
-    {#each { length: cfg.holes } as _, i (i)}
-      <span
-        class="hole"
-        class:done={done.includes(i)}
-        class:next={i === index && phase === 'playing'}
-        style="--a: {i * slot}rad"
-      ></span>
-    {/each}
-    <div class="marker" style="transform: rotate({angle}rad)"><i></i></div>
+      <circle cx={C} cy={C} r={RING} class="track" />
+      <circle cx={C} cy={C} r={R} class="rim" filter="url(#sl-glow)" />
+
+      {#each { length: cfg.holes } as _, i (i)}
+        <circle
+          cx={C + RING * Math.cos(at(i))}
+          cy={C + RING * Math.sin(at(i))}
+          r={HR}
+          class="hole"
+          class:done={done.includes(i)}
+          class:next={i === index && phase === 'playing'}
+        />
+      {/each}
+
+      {#if phase === 'playing'}
+        <circle
+          cx={C + RING * Math.cos(angle - Math.PI / 2)}
+          cy={C + RING * Math.sin(angle - Math.PI / 2)}
+          r="9"
+          class="marker"
+          filter="url(#sl-glow)"
+        />
+      {/if}
+
+      <circle cx={C} cy={C} r="58" class="hub" />
+      <text x={C} y={C - 10} class="cue">PRESS</text>
+      <text x={C} y={C + 22} class="cuekey">E</text>
+    </svg>
   </div>
 
   {#if phase !== 'playing'}
@@ -130,20 +163,20 @@
       {#if phase === 'idle'}
         <h3>Shop Lockpick</h3>
         <p>
-          The pick sweeps the barrel. Tap <kbd>E</kbd> as it passes each of the {cfg.holes} holes, in
-          order. It never changes pace, so this is one steady rhythm all the way round.
+          The pick sweeps around the barrel. Tap <kbd>E</kbd> as it crosses each of the {cfg.holes} holes,
+          in order. The speed never changes, so it is one steady rhythm the whole way round.
         </p>
       {:else if phase === 'won'}
-        <h3>Barrel Open</h3>
+        <h3>Open</h3>
         <p>All {cfg.holes} holes set. Go again.</p>
       {:else}
         <h3>Snapped</h3>
         <p>
-          {note === 'early'
-            ? 'Too early — the pick had not reached the hole yet.'
-            : note === 'late'
-              ? 'Too late — the pick was already past it.'
-              : 'Ran out of time. Keep the rhythm going instead of waiting for a clean look.'}
+          {reason === 'early'
+            ? 'Too early. The pick had not reached the hole yet.'
+            : reason === 'late'
+              ? 'Too late. The pick was already past it.'
+              : 'Out of time. Stay on the beat instead of waiting for a clean look.'}
         </p>
       {/if}
       <button class="btn" onclick={start}>{phase === 'idle' ? 'Start' : 'Retry'}</button>
@@ -154,107 +187,75 @@
 
 <style>
   .shoplock {
-    display: grid;
-    place-content: center;
-    justify-items: center;
-    gap: 26px;
-    aspect-ratio: 16 / 10;
-    padding: 56px 24px 28px;
-    background: linear-gradient(180deg, #35383c 0%, #292c30 100%);
+    aspect-ratio: 16 / 9;
+    background: radial-gradient(circle at 50% 48%, #1b1e21 0%, #101214 72%);
   }
 
-  .timer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: #ffffff10;
-    z-index: 3;
+  .rim {
+    fill: none;
+    stroke: #8ee03a;
+    stroke-width: 3.2;
   }
 
-  .timer i {
-    display: block;
-    height: 100%;
-    transform-origin: left;
-    background: linear-gradient(90deg, #8ede4a, #ffb545);
-  }
-
-  .label {
-    z-index: 2;
-    padding: 7px 16px;
-    border-radius: 6px;
-    background: #1b1e21e6;
-    box-shadow: 0 2px 10px #0008;
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-    color: #dfe7f0;
-  }
-
-  .ring {
-    position: relative;
-    z-index: 2;
-    width: 270px;
-    height: 270px;
-    border: 30px solid #ffffff14;
-    border-radius: 50%;
+  .track {
+    fill: none;
+    stroke: #ffffff12;
+    stroke-width: 40;
   }
 
   .hole {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 40px;
-    height: 40px;
-    margin: -20px 0 0 -20px;
-    border-radius: 50%;
-    background: #191c1a;
-    box-shadow: inset 0 1px 4px #000a;
-    transform: rotate(var(--a)) translateY(-135px);
-    transition: background 0.1s linear;
+    fill: #12150f;
+    stroke: #8ee03a3d;
+    stroke-width: 1.6;
+    transition:
+      fill 0.14s ease,
+      stroke 0.14s ease;
   }
 
   .hole.next {
-    background: #2c3326;
-    box-shadow:
-      inset 0 1px 4px #000a,
-      0 0 0 2px #8ede4a55;
+    stroke: #8ee03a99;
+    stroke-width: 2.4;
   }
 
   .hole.done {
-    background: #8ede4a;
-    box-shadow: 0 0 16px -3px #8ede4a;
+    fill: #8ee03a;
+    stroke: #d2ff92;
+    stroke-width: 2;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: set 0.26s cubic-bezier(0.2, 1.3, 0.4, 1) both;
   }
 
   .marker {
-    position: absolute;
-    inset: -30px;
-    will-change: transform;
+    fill: #b6f562;
   }
 
-  .marker i {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 16px;
-    height: 16px;
-    margin: -8px 0 0 -8px;
-    border-radius: 50%;
-    background: #b6f562;
-    box-shadow: 0 0 16px 2px #b6f562cc;
-    transform: translateY(-135px);
+  .hub {
+    fill: #0b0e08;
+    stroke: #8ee03a4d;
+    stroke-width: 1.4;
   }
 
-  .overlay kbd,
-  .keyhint kbd {
-    padding: 2px 7px;
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    background: #0e141d;
-    font-family: inherit;
-    font-size: 0.9em;
-    color: var(--text);
+  .cue {
+    fill: #6f8a52;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-anchor: middle;
+  }
+
+  .cuekey {
+    fill: #b6f562;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 34px;
+    font-weight: 800;
+    text-anchor: middle;
+  }
+
+  @keyframes set {
+    from {
+      transform: scale(0.5);
+    }
   }
 </style>

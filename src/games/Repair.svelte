@@ -120,30 +120,32 @@
     <div class="timer"><i style="transform: scaleX({bar})"></i></div>
   {/if}
 
-  <div class="track" onpointerdown={commit} role="presentation">
-    <div class="zone" style="left: {zone.start}%; width: {zone.width}%"></div>
-    <div class="marker" style="left: {pos}%"></div>
-    <div class="ticks">
-      {#each { length: 21 } as _, i (i)}
-        <i class:major={i % 5 === 0}></i>
-      {/each}
+  <div class="field">
+    <div class="track" onpointerdown={commit} role="presentation">
+      <div class="zone" style="left: {zone.start}%; width: {zone.width}%"></div>
+      <div class="marker" style="left: {pos}%"></div>
+      <div class="ticks">
+        {#each { length: 21 } as _, i (i)}
+          <i class:major={i % 5 === 0}></i>
+        {/each}
+      </div>
     </div>
-  </div>
 
-  {#if last}
-    <p class="readout" class:ok={last.ok}>
-      {#if last.off === null}
-        no input
-      {:else if last.ok}
-        hit &nbsp;<span class="mono">{last.off > 0 ? '+' : ''}{last.off}</span> from centre
-      {:else}
-        missed by <span class="mono"
-          >{Math.abs(Math.round((Math.abs(last.off) - zone.width / 2) * 10) / 10)}</span
-        >
-        {last.off > 0 ? 'right' : 'left'}
-      {/if}
-    </p>
-  {/if}
+    {#if last}
+      <p class="readout" class:ok={last.ok}>
+        {#if last.off === null}
+          no input
+        {:else if last.ok}
+          hit &nbsp;<span class="mono">{last.off > 0 ? '+' : ''}{last.off}</span> from centre
+        {:else}
+          missed by <span class="mono"
+            >{Math.abs(Math.round((Math.abs(last.off) - zone.width / 2) * 10) / 10)}</span
+          >
+          {last.off > 0 ? 'right' : 'left'}
+        {/if}
+      </p>
+    {/if}
+  </div>
 
   {#if phase !== 'playing'}
     <div class="overlay" class:win={phase === 'won'} class:lose={phase === 'lost'}>
@@ -172,36 +174,20 @@
 
 <style>
   .repair {
-    display: grid;
-    align-content: center;
-    justify-items: center;
-    gap: 20px;
     aspect-ratio: 16 / 7;
-    padding: 58px 42px 34px;
   }
 
-  .timer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: #ffffff10;
-    z-index: 3;
-  }
-
-  .timer i {
-    display: block;
-    height: 100%;
-    transform-origin: left;
-    background: linear-gradient(90deg, var(--accent), var(--warn));
+  .repair .field {
+    align-content: center;
+    justify-items: stretch;
+    gap: 20px;
+    padding-inline: 22px;
   }
 
   .track {
     position: relative;
-    z-index: 2;
     width: 100%;
-    height: 74px;
+    height: min(22cqh, 74px);
     border: 1px solid var(--line);
     border-radius: 10px;
     background: #0c121b;
@@ -248,8 +234,8 @@
   }
 
   .readout {
-    z-index: 2;
     margin: 0;
+    justify-self: center;
     font-size: 12px;
     letter-spacing: 0.14em;
     text-transform: uppercase;

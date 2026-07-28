@@ -1,83 +1,113 @@
-# Prodigy 4.0 — Minigame Practice
+# Prodigy 4.0 Minigames
 
-Offline browser mock of the Prodigy RP (FiveM) minigames, so you can drill the timing and
-patterns without burning attempts in-server.
+An offline practice app for the minigames on the Prodigy RP FiveM server. Runs
+in the browser so you can drill the timing and patterns without burning
+attempts in game.
+
+Nothing here talks to the server. It is a mock built from public documentation
+and from screen recordings of real attempts.
+
+## Running it
 
 ```bash
 npm install
 npm run dev      # http://localhost:5180
+npm run build    # production bundle into dist/
+npm run preview  # serve the built bundle
 ```
 
-Stats (attempts, success rate, streak, best streak, average clear time) are tracked per game in
+Requires Node 20 or newer. No other setup.
+
+## What is in it
+
+| Game          | Based on       | How close it is                             |
+| ------------- | -------------- | ------------------------------------------- |
+| Lockpick      | `rythmClick`   | Traced from footage of a real vehicle entry |
+| Shop Lockpick | `shopLockpick` | Built from the documented config            |
+| Minesweeper   | `mineSweeper`  | Built from the documented config            |
+| Thermite      | —              | Approximation, no documented match          |
+| Repair Kit    | —              | Approximation, no documented match          |
+
+The sidebar groups games the same way, so you always know how much to trust
+what you are practising on. Every game has easy / normal / hard, and normal is
+the setting that matches the real config wherever one is known.
+
+Attempts, win rate, streak and average clear time are stored per game in
 `localStorage`.
 
-## What's in here
+See [docs/MINIGAMES.md](docs/MINIGAMES.md) for every documented minigame and
+its config, including the fourteen not built yet.
 
-| Game | Used for | Mechanic |
-| --- | --- | --- |
-| `Lockpick` | Vehicle entry | Numbered circles on a beat, then a counter-clockwise mouse spin |
-| `Thermite` | Robberies / vaults | Grid flashes a pattern, reproduce it before the timer expires |
-| `Repair Kit` | Gear + vehicle repair | Sweeping marker, commit inside the narrowing sweet-spot zone |
+## Project layout
 
-Each has easy / normal / hard presets in the `CFG` object at the top of its component.
-
-## Accuracy
-
-Source of truth is Prodigy Studios' own documentation —
-[`docs.prodigyrp.net/crime/prp-minigames/minigames`](https://docs.prodigyrp.net/crime/prp-minigames/minigames.html)
-— which publishes a config block *and* an example screenshot for all 20 minigames in the
-`prp-minigames` NUI library. Note the page is server-rendered but defeats some extraction tools;
-plain `curl` gets the content.
-
-### Lockpick
-
-Vehicle entry is **not** the library's `lockpick` entry (that one is a horizontal bar of holes with
-an `E` press — a different, unused-here game). It's `rythmClick`, whose example screenshot is
-titled **"UNLOCK LOCK"**: numbered circles with shrinking approach rings and osu-style follow
-lines. Documented config, used as the `normal` preset:
-
-```lua
--- gameName: rythmClick
-{ targetCount = 10, interval = 300 }
+```
+src/
+  App.svelte          shell — sidebar, difficulty, stats, game switching
+  app.css             design tokens, stage system, shell styling, motion
+  main.js             mount point
+  games/              one component per minigame, self-contained
+    Lockpick.svelte
+    ShopLockpick.svelte
+    MineSweeper.svelte
+    Thermite.svelte
+    Repair.svelte
+  lib/
+    games.js          the registry — grouping, copy, difficulty list
+    stats.svelte.js   localStorage-backed per-game stats
+docs/
+  MINIGAMES.md        documented config reference
 ```
 
-After the circles comes a rotational phase where you swirl the mouse counter-clockwise until the
-lock pops. The closest documented entry is `holeMatch`
-(`{ time = 45000, radialSpeed = math.pi/1800, objCount = 5, maxErrors = 2 }`), whose screenshot is
-a ring of 5 holes labelled `CLICK E TO OPEN LOCK` — that ring is what the spin dial here is drawn
-from.
+## Adding a minigame
 
-Still inferred, because the docs don't publish them:
+1. Create `src/games/YourGame.svelte`.
+2. Add an entry to the right group in `src/lib/games.js` with an `id`, `name`,
+   `tag`, `component`, optional `config` string, and a short `blurb`.
 
-- **Approach-ring duration and the hit window.** `interval` sets how often targets *spawn*, not how
-  long the ring takes to close. `approach: 950` / `window: 150` are guesses — these two are the
-  biggest levers on difficulty, tune them first.
-- **The spin phase's real input model.** Implemented as accumulated counter-clockwise mouse
-  rotation over `turns` full circles. `holeMatch`'s published config implies an `E`-timing game on
-  a rotating ring instead, so either the server chains a different resource here or the input
-  differs from the library default.
-- **Whether a miss is instantly fatal.** Implemented as fatal. `holeMatch` has `maxErrors = 2`, so
-  some tolerance may exist.
+That is the whole wiring. The shell picks it up automatically.
 
-### Thermite and Repair Kit
+## Sizing rules for game components
 
-Still approximations. They're the right shape for the NoPixel-family games Prodigy's criminal loop
-uses, but they were built before the docs turned up and don't yet map onto a documented
-`prp-minigames` entry. `mineSweeper` (`{ x = 9, y = 9, mineCount = 10 }`) is the real vault-side
-grid game and is not what `Thermite` currently implements.
+Sizing content against the browser window instead of against its own frame is
+what caused repeated "it renders outside the box" bugs. The stage system in
+`app.css` exists to make that impossible, so use it:
 
-## The other documented minigames
+- Put the aspect ratio on the game's root class. Nothing else goes there.
+- Wrap the playable area in `<div class="field">`. It is absolutely positioned
+  and already leaves room for the HUD strip.
+- Anything that must stay square gets `class="square"`. It fits its box at any
+  size.
+- For a dial or anything circular, draw an
+  `<svg class="fitsvg" viewBox="0 0 400 400">`. An svg with a viewBox scales
+  itself down to fit and cannot overflow.
+- Scale text inside a game with `cqmin`. `.field` is a query container, so
+  `cqmin` means "relative to this frame".
 
-Not built yet, but the docs give exact configs for all of them:
+Never use `vh`, `vw`, or fixed pixel sizes for playfield geometry.
 
-`aimLab` · `arrowClicker` · `cableConnect` · `cableJigsaw` · `codeFind` · `colorCount` ·
-`flappyBird` · `holeMatch` · `jigsawPuzzle` · `knobTurning` · `lettersFall` · `lockpick` ·
-`mineSweeper` · `pairMatch` · `pipeDodge` · `rythmArrows` · `shopLockpick` · `signMemory` ·
-`simonSays` / `simonSaysOrig` · `traceShape`
+## Shared classes
 
-Careful with the lock-flavoured ones — three of them share lock-opening labels because the `text`
-field is set per call:
+Defined once in `app.css` and used by every game:
 
-- **`lockpick`** — horizontal bar of holes, `E` press. `{ holeCount = 8, speed = 10 }`
-- **`shopLockpick`** — circular dashed ring. `{ holeCount = 12, speed = "Math.PI/1.5", bounce = false }`
-- **`holeMatch`** — rotating ring of 5 holes, `E` press.
+`.stage` `.field` `.square` `.fitsvg` `.hud` `.timer` `.overlay` `.btn`
+`.keyhint` `kbd`
+
+Motion is centralised the same way — `fade`, `rise` and `pop` keyframes, plus a
+`prefers-reduced-motion` block that neutralises all of it.
+
+## Accuracy notes
+
+Things worth not relearning the hard way:
+
+- Vehicle entry is `rythmClick`, **not** the entry the docs label `lockpick`.
+  Three different games show lock-opening captions because the caption is
+  passed in per call.
+- The pins are clicked in numbered order, several are on the dial at once, and
+  the timing cue is an outer circle closing inward onto the pin.
+- The finishing spin is **clockwise**.
+- A screen recording beats a documentation screenshot every time. A screenshot
+  is one frame of an animation — a shrinking ring caught near the end of its
+  travel reads as a static double ring, which is exactly how this got built
+  wrong once.
+- The docs site is server rendered but defeats some extraction tools. Plain
+  `curl` returns the full page including every config block.

@@ -4,12 +4,14 @@ import MineSweeper from '../games/MineSweeper.svelte'
 import Thermite from '../games/Thermite.svelte'
 import Repair from '../games/Repair.svelte'
 
-// Grouped by how much the mock can actually be trusted, because that is the
-// thing worth knowing before you practise on it.
+export const DIFFICULTIES = ['easy', 'normal', 'hard']
+
+// Grouped by how closely each mock matches the real thing, because that is
+// what you want to know before you practise on it. See docs/MINIGAMES.md.
 export const groups = [
   {
     name: 'Traced from footage',
-    hint: 'Layout and pacing matched against a recording of the live server.',
+    hint: 'Matched against a screen recording of the live server.',
     games: [
       {
         id: 'lockpick',
@@ -18,13 +20,13 @@ export const groups = [
         component: Lockpick,
         config: 'rythmClick { targetCount, interval = 300 }',
         blurb:
-          'Numbered pins appear around a circular dial, up to three at a time, joined by a dotted route. Click them in order — the live pin carries a countdown ring, and clicking out of order snaps the pick. Clear the set and the barrel starts turning: swirl the mouse counter-clockwise until the arc closes and it reads OPEN.'
+          'Numbered pins appear around a dial, a few at a time. The next one has an outer circle closing in on it — click as that circle lands on the pin, and always in numbered order. Clear the set and the barrel turns: swirl the mouse clockwise until it reads OPEN.'
       }
     ]
   },
   {
     name: 'From the documented config',
-    hint: 'Mechanics and numbers lifted from the prp-minigames docs, not yet seen live.',
+    hint: 'Built from the prp-minigames docs. Not yet checked against live footage.',
     games: [
       {
         id: 'shoplockpick',
@@ -33,7 +35,7 @@ export const groups = [
         component: ShopLockpick,
         config: 'shopLockpick { holeCount = 12, speed = Math.PI/1.5, bounce = false }',
         blurb:
-          'A pick sweeps a barrel of twelve holes at a fixed rate. Tap E as it crosses each one, in order. Nothing about the pace ever changes, so this is a single rhythm held all the way round — the mistake is hesitating for a clean look instead of staying on the beat.'
+          'A pick sweeps around a barrel of twelve holes. Tap E as it crosses each one, in order. The speed never changes, so this is a single rhythm held the whole way round.'
       },
       {
         id: 'minesweeper',
@@ -42,13 +44,13 @@ export const groups = [
         component: MineSweeper,
         config: 'mineSweeper { x = 9, y = 9, mineCount = 10 }',
         blurb:
-          'Standard minesweeper on a 9×9 board with ten mines. Left click clears, right click flags, and your first click is always safe. Work outward from numbers you can already resolve rather than guessing into open space.'
+          'Ordinary minesweeper on a 9x9 board with ten mines. Left click clears, right click flags, and your first click is always safe.'
       }
     ]
   },
   {
     name: 'Approximations',
-    hint: 'Built before the research — no documented entry matches these yet.',
+    hint: 'Built before the research. No documented entry matches these yet.',
     games: [
       {
         id: 'thermite',
@@ -56,7 +58,7 @@ export const groups = [
         tag: 'Grid memory',
         component: Thermite,
         blurb:
-          'A pattern of tiles lights up for a moment, then the grid goes dark and you reproduce it. One wrong tile blows the attempt. Chunk the pattern into rows instead of memorising loose dots. Note: the real vault-side grid game is minesweeper — this one is a stand-in.'
+          'Tiles flash for a moment, then the grid goes dark and you click them back. One wrong tile ends the run. The real vault grid game is minesweeper, so treat this one as a stand-in.'
       },
       {
         id: 'repair',
@@ -64,7 +66,7 @@ export const groups = [
         tag: 'Precision timing',
         component: Repair,
         blurb:
-          'A marker sweeps the bar and you commit inside the green zone. Each round the zone narrows and the sweep speeds up. Press as the marker enters the zone, not once it sits on it — that gap covers your input delay.'
+          'Stop the marker inside the green zone. The zone narrows and the sweep speeds up each stage. Commit as the marker enters the green, not once it covers the middle.'
       }
     ]
   }

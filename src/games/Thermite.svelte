@@ -108,19 +108,21 @@
     <div class="timer"><i style="transform: scaleX({bar})"></i></div>
   {/if}
 
-  <div class="grid" style="--n: {cfg.size}">
-    {#each { length: cells } as _, i (i)}
-      <button
-        class="tile"
-        class:show={phase === 'memorise' && target.includes(i)}
-        class:got={picked.includes(i)}
-        class:bad={wrong === i}
-        class:reveal={phase === 'lost' && target.includes(i) && !picked.includes(i)}
-        disabled={phase !== 'solve'}
-        onclick={() => pick(i)}
-        aria-label="Tile {i + 1}"
-      ></button>
-    {/each}
+  <div class="field">
+    <div class="grid square" style="--n: {cfg.size}">
+      {#each { length: cells } as _, i (i)}
+        <button
+          class="tile"
+          class:show={phase === 'memorise' && target.includes(i)}
+          class:got={picked.includes(i)}
+          class:bad={wrong === i}
+          class:reveal={phase === 'lost' && target.includes(i) && !picked.includes(i)}
+          disabled={phase !== 'solve'}
+          onclick={() => pick(i)}
+          aria-label="Tile {i + 1}"
+        ></button>
+      {/each}
+    </div>
   </div>
 
   {#if phase === 'idle' || phase === 'won' || phase === 'lost'}
@@ -150,36 +152,13 @@
 
 <style>
   .thermite {
-    display: grid;
-    place-items: center;
     aspect-ratio: 16 / 10;
-    padding: 58px 24px 24px;
-  }
-
-  .timer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: #ffffff10;
-    z-index: 3;
-  }
-
-  .timer i {
-    display: block;
-    height: 100%;
-    transform-origin: left;
-    background: linear-gradient(90deg, var(--accent), var(--warn));
   }
 
   .grid {
     display: grid;
     grid-template-columns: repeat(var(--n), 1fr);
     gap: 8px;
-    width: min(100%, 62vh);
-    aspect-ratio: 1;
-    z-index: 2;
   }
 
   .tile {
@@ -187,9 +166,14 @@
     border-radius: 8px;
     background: #0e151f;
     transition:
-      background 0.11s ease,
-      border-color 0.11s ease,
-      box-shadow 0.11s ease;
+      background 0.13s ease,
+      border-color 0.13s ease,
+      box-shadow 0.13s ease,
+      transform 0.13s ease;
+  }
+
+  .tile:not(:disabled):active {
+    transform: scale(0.93);
   }
 
   .tile:not(:disabled):hover {
