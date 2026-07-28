@@ -1,5 +1,6 @@
 import Lockpick from '../games/Lockpick.svelte'
 import ShopLockpick from '../games/ShopLockpick.svelte'
+import BarLockpick from '../games/BarLockpick.svelte'
 import MineSweeper from '../games/MineSweeper.svelte'
 import Thermite from '../games/Thermite.svelte'
 import Repair from '../games/Repair.svelte'
@@ -36,6 +37,15 @@ export const groups = [
         config: 'shopLockpick { holeCount = 12, speed = Math.PI/1.5, bounce = false }',
         blurb:
           'A pick sweeps around a barrel of twelve holes. Tap E as it crosses each one, in order. The speed never changes, so this is a single rhythm held the whole way round.'
+      },
+      {
+        id: 'barlockpick',
+        name: 'Bar Lockpick',
+        tag: 'Doors and props',
+        component: BarLockpick,
+        config: 'lockpick { holeCount = 8, speed = 10 }',
+        blurb:
+          'The entry the docs actually call `lockpick` — a straight bar of eight holes, not the vehicle one. A pick runs the bar and turns at each end; tap E as it crosses each hole in order. The docs give no unit for speed, so 10 is read as a two and a half second sweep — the reading that puts its timing in line with Shop Lockpick.'
       },
       {
         id: 'minesweeper',

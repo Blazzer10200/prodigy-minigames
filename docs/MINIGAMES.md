@@ -16,6 +16,7 @@ it. Every value there becomes a slider in the app's tuning panel.
 | Game           | Config                                                      | Notes                                                                                                                                                      |
 | -------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `rythmClick`   | `{ targetCount = 10, interval = 300 }`                      | Vehicle lockpick. `interval` is the spawn gap, not the ring speed. Live footage showed 6 pins, which is what `normal` uses; `hard` uses the documented 10. |
+| `lockpick`     | `{ holeCount = 8, speed = 10 }`                             | Straight bar of holes, `E` in order. Not the vehicle one. `speed` has no documented unit — read as a 2.5s sweep at the documented 10, chosen so the hit window matches `shopLockpick`'s ~80ms rather than guessing a unit. |
 | `shopLockpick` | `{ holeCount = 12, speed = "Math.PI/1.5", bounce = false }` | Circular barrel, `E` on each hole in order.                                                                                                                |
 | `mineSweeper`  | `{ x = 9, y = 9, mineCount = 10 }`                          | Ordinary minesweeper.                                                                                                                                      |
 
@@ -34,7 +35,6 @@ it. Every value there becomes a slider in the app's tuning panel.
 | `jigsawPuzzle`                | `{ time = 10000, text, presetName = "hand" \| "leg", pieceCount = 5 }`                              |
 | `knobTurning`                 | `{ time = 15000, text = "Anesthetic Adjustment" }`                                                  |
 | `lettersFall`                 | `{ time = 30000, text, speed = 0.1, difficulty = 5 }`                                               |
-| `lockpick`                    | `{ holeCount = 8, speed = 10 }`                                                                     |
 | `pairMatch`                   | `{ displayTime = 5000, time = 120000, text, x = 6, y = 6, pairCount = 8, allowedErrors = -1 }`      |
 | `pipeDodge`                   | `{ time = 30000 }`                                                                                  |
 | `rythmArrows`                 | `{ speed = 120, arrowCount = 4, time = 4000, threshold = 7.0 }`                                     |
@@ -54,6 +54,49 @@ can show a "open the lock" style label.
 | `holeMatch`    | Rotating ring of 5 holes, `E` press, tolerates 2 errors. |
 
 Vehicle entry is none of them. It is `rythmClick`.
+
+## What the sources are worth
+
+Re-checked 2026-07-28. Where accuracy can and cannot come from:
+
+- **The docs page is the only first-party source, and it only gives defaults.**
+  Re-fetched in full; every config block matches what is recorded above, so
+  there is nothing new to mine there. It publishes no mechanics, no timing
+  curves, and no hit windows.
+- **`prp-minigames` is a paid, closed-source Prodigy Studios resource** (Cfx
+  Marketplace, ~750 servers). There is no source to read, and leaked copies are
+  not a source this project will use. That puts a hard ceiling on accuracy:
+  **documented defaults plus your own footage, nothing else.**
+- **Prodigy RP 4.0 is current.** The 4.0 rebuild launched around May 2026 and
+  no 5.0 exists, so "4.0 or higher" is just "now". The docs are not versioned.
+
+### Third-party reimplementations
+
+- [`NickRobin23/Robins-Lockpick`](https://github.com/NickRobin23/Robins-Lockpick)
+  — open source, self-described "Prodigy RP styled". Independently arrived at
+  the same approach-ring model: numbered targets, clicked in order, one miss
+  ends the run. Its numbers are worth knowing but are **its author's guesses,
+  not Prodigy's**, so none of them were copied in. For the record: ring starts
+  at 2.4x the target, next target spawns at 45% of the shrink time, a 500ms
+  grace after the ring closes still counts, and difficulty 1-10 maps to
+  `shrink = 2400 - (d-1)*220`, `window = 220 - (d-1)*21`.
+  Where it differs from our footage: it gives **every** live target its own
+  ring and scatters them across the screen, while the recording showed a dial
+  with the ring only on the pin you need next. Ours follows the footage.
+- **`nphacks.net` is not a source.** It claims Prodigy's lockpick is NoPixel's
+  rotating-ring colour-match lock. That contradicts both the docs and the
+  footage, and the site cross-claims the same game for every server it lists.
+  Ignore it.
+
+### What would actually move accuracy
+
+Only new footage. Ranked by how much is currently guessed:
+
+1. `rythmClick` — is there a ring on every live pin, or only the next one?
+   This is the one open question on the game we know best.
+2. Hit windows on every game. No documented value exists for any of them.
+3. Time limits. Same — `shopLockpick` and `lockpick` have none documented.
+4. `thermite` and `repair` — still no documented entry that matches either.
 
 ## Getting the screenshots
 

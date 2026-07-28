@@ -65,6 +65,20 @@ export const TUNING = {
     }
   },
 
+  barlockpick: {
+    fields: [
+      { key: 'holes', label: 'Holes', min: 4, max: 16, step: 1 },
+      { key: 'speed', label: 'Pick speed', min: 2, max: 30, step: 0.5 },
+      { key: 'window', label: 'Hit window', min: 0.008, max: 0.09, step: 0.002, unit: 'bar' },
+      { key: 'limit', label: 'Time limit', min: 10000, max: 90000, step: 1000, unit: 'ms' }
+    ],
+    base: {
+      easy: { holes: 6, speed: 7, window: 0.05, limit: 45000 },
+      normal: { holes: 8, speed: 10, window: 0.032, limit: 35000 },
+      hard: { holes: 10, speed: 14, window: 0.022, limit: 30000 }
+    }
+  },
+
   minesweeper: {
     fields: [
       { key: 'x', label: 'Columns', min: 5, max: 16, step: 1 },
