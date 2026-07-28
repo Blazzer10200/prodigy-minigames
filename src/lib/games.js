@@ -9,7 +9,7 @@ export const games = [
     tag: 'Vehicle entry',
     component: Lockpick,
     blurb:
-      'Two phases. First the rythmClick board — 10 numbered circles, one spawning every 300ms, each clicked as its approach ring lands. Clear them and the lock drops into a spin: swirl the mouse counter-clockwise until it pops. Targets arrive on a fixed beat, so ride the rhythm instead of chasing each ring.'
+      'Circles appear one at a time with a shrinking approach ring — click the moment the ring meets the circle. Too early or too late snaps the pick. Clear all 10 and the lock drops into a spin: swirl the mouse counter-clockwise to pop it. The ring speed never changes, so once you find the beat on the first target the same timing clears the rest.'
   },
   {
     id: 'thermite',
