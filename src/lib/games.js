@@ -27,7 +27,7 @@ export const groups = [
   },
   {
     name: 'From the documented config',
-    hint: 'Built from the prp-minigames docs. Not yet checked against live footage.',
+    hint: 'Built from the published script docs. Not yet checked against live footage.',
     games: [
       {
         id: 'shoplockpick',

@@ -1,11 +1,12 @@
-# Prodigy 4.0 Minigames
+# Minigame Sandbox
 
-An offline practice app for the minigames on the Prodigy RP FiveM server. Runs
-in the browser so you can drill the timing and patterns without burning
-attempts in game.
+An offline practice app for the skill-check minigames common to FiveM roleplay
+servers — lockpicks, grids, timing bars. Runs in the browser so you can drill
+the timing and patterns without burning attempts in game.
 
-Nothing here talks to the server. It is a mock built from public documentation
-and from screen recordings of real attempts.
+Nothing here talks to any server, and no game code is copied. Every game is a
+clean-room mock built from publicly published config documentation and from
+screen recordings of real attempts.
 
 ## Running it
 
@@ -50,7 +51,7 @@ stage. Ring speed, hit window, board size, time limits — all of it.
 - **Back to easy / normal / hard** throws your edits away and returns to the
   built-in numbers. Those are read only and can always be recovered this way.
 
-Edits and presets live in `localStorage` under `prodigy-practice-tuning`.
+Edits and presets live in `localStorage` under `minigame-sandbox-tuning`.
 Values are clamped and snapped to their slider step on load, so a hand-edited
 entry cannot put a game into a state it cannot run.
 

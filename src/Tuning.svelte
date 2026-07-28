@@ -11,9 +11,13 @@
     deletePreset
   } from './lib/tuning.svelte.js'
 
+  // Difficulty is the control almost everyone wants. The individual numbers are
+  // kept behind a second click so the panel opens as a short explanation rather
+  // than a wall of sliders.
   let { game, difficulty, onapply } = $props()
 
   let open = $state(false)
+  let advanced = $state(false)
   let name = $state('')
 
   const knobs = $derived(fields(game))
@@ -44,87 +48,102 @@
 
 <section class="tuning" class:open>
   <button class="tuneHead" onclick={() => (open = !open)} aria-expanded={open}>
-    <span class="tuneTitle">Tuning</span>
-    <span class="tuneWhat">{difficulty}{dirty ? ' · edited' : ''}</span>
+    <span class="tuneTitle">Customise</span>
+    <span class="tuneWhat">{dirty ? 'your own numbers' : 'optional'}</span>
     <span class="chev" aria-hidden="true">▾</span>
   </button>
 
   {#if open}
     <div class="tuneBody">
-      <div class="knobs">
-        {#each knobs as f (f.key)}
-          <label class="knob">
-            <span class="knobTop">
-              {f.label}
-              <b class="mono">{show(f, values[f.key])}{f.unit ? ' ' + f.unit : ''}</b>
-            </span>
-            <input
-              type="range"
-              min={f.min}
-              max={f.max}
-              step={f.step}
-              value={values[f.key]}
-              oninput={(e) => drag(f.key, e)}
-              onchange={apply}
-            />
-          </label>
-        {/each}
-      </div>
+      <p class="lede">
+        You are playing <b>{difficulty}</b>. The three difficulty buttons are all most people need —
+        everything below just lets you drill one specific thing, like a tighter hit window.
+      </p>
 
-      <div class="tuneBar">
-        <input
-          class="pname"
-          type="text"
-          placeholder="Name this preset"
-          maxlength="28"
-          bind:value={name}
-          onkeydown={(e) => e.key === 'Enter' && store()}
-        />
-        <button class="chip go" disabled={!name.trim()} onclick={store}>Save preset</button>
-        <button
-          class="chip"
-          disabled={!dirty}
-          onclick={() => {
-            revert(game, difficulty)
-            apply()
-          }}
-        >
-          Back to {difficulty}
+      <div class="rowBar">
+        <button class="chip" onclick={() => (advanced = !advanced)} aria-expanded={advanced}>
+          {advanced ? 'Hide' : 'Show'} the {knobs.length} settings
         </button>
+        {#if dirty}
+          <button
+            class="chip warn"
+            onclick={() => {
+              revert(game, difficulty)
+              apply()
+            }}
+          >
+            Reset to {difficulty}
+          </button>
+        {/if}
       </div>
 
-      {#if presets.length}
-        <div class="presets">
-          {#each presets as p (p.id)}
-            <span class="preset">
-              <button
-                class="use"
-                onclick={() => {
-                  applyPreset(p.id, difficulty)
-                  apply()
-                }}
-              >
-                {p.name}
-              </button>
-              <button class="drop" title="Delete preset" onclick={() => deletePreset(p.id)}
-                >×</button
-              >
-            </span>
+      {#if advanced}
+        <div class="knobs">
+          {#each knobs as f (f.key)}
+            <label class="knob">
+              <span class="knobTop">
+                {f.label}
+                <b class="mono">{show(f, values[f.key])}{f.unit ? ' ' + f.unit : ''}</b>
+              </span>
+              <input
+                type="range"
+                min={f.min}
+                max={f.max}
+                step={f.step}
+                value={values[f.key]}
+                oninput={(e) => drag(f.key, e)}
+                onchange={apply}
+              />
+              <span class="knobHelp">{f.help}</span>
+            </label>
           {/each}
         </div>
-      {/if}
 
-      <p class="tuneNote">
-        Presets save the numbers, not the difficulty. Load one onto easy, normal or hard and it
-        overwrites whichever is selected.
-      </p>
+        <div class="tuneBar">
+          <input
+            class="pname"
+            type="text"
+            placeholder="Name these numbers to save them"
+            maxlength="28"
+            bind:value={name}
+            onkeydown={(e) => e.key === 'Enter' && store()}
+          />
+          <button class="chip go" disabled={!name.trim()} onclick={store}>Save</button>
+        </div>
+
+        {#if presets.length}
+          <div class="presets">
+            {#each presets as p (p.id)}
+              <span class="preset">
+                <button
+                  class="use"
+                  onclick={() => {
+                    applyPreset(p.id, difficulty)
+                    apply()
+                  }}
+                >
+                  {p.name}
+                </button>
+                <button class="drop" title="Delete" onclick={() => deletePreset(p.id)}>×</button>
+              </span>
+            {/each}
+          </div>
+          <p class="tuneNote">
+            A saved set holds numbers, not a difficulty. Clicking one drops it onto whichever of
+            easy, normal or hard you have selected.
+          </p>
+        {/if}
+      {/if}
     </div>
   {/if}
 </section>
 
 <style>
   .tuning {
-    margin-top: 16px;
+    flex: none;
+    margin-top: 14px;
+    max-height: 42vh;
+    overflow-y: auto;
     border: 1px solid var(--line);
     border-radius: 12px;
     background: var(--panel-2);
@@ -166,19 +185,41 @@
   }
 
   .tuneBody {
-    padding: 4px 15px 15px;
+    padding: 2px 15px 15px;
     animation: fade 0.18s ease both;
+  }
+
+  .lede {
+    margin: 0 0 12px;
+    max-width: 70ch;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+
+  .lede b {
+    color: var(--text);
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+
+  .rowBar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   .knobs {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 12px 24px;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px 24px;
+    margin-top: 16px;
+    animation: fade 0.18s ease both;
   }
 
   .knob {
     display: grid;
-    gap: 5px;
+    gap: 4px;
   }
 
   .knobTop {
@@ -187,19 +228,25 @@
     justify-content: space-between;
     gap: 10px;
     font-size: 12px;
-    color: var(--muted);
+    color: var(--text);
   }
 
   .knobTop b {
     font-size: 12px;
     font-weight: 600;
-    color: var(--text);
+    color: var(--accent);
+  }
+
+  .knobHelp {
+    font-size: 11px;
+    line-height: 1.5;
+    color: #55657c;
   }
 
   input[type='range'] {
     width: 100%;
     height: 4px;
-    margin: 4px 0;
+    margin: 3px 0;
     border-radius: 3px;
     background: #1c2836;
     appearance: none;
@@ -260,7 +307,6 @@
     font-size: 11.5px;
     letter-spacing: 0.06em;
     color: var(--muted);
-    text-transform: capitalize;
     transition:
       color 0.16s ease,
       border-color 0.16s ease,
@@ -281,6 +327,12 @@
   .chip.go:not(:disabled) {
     color: var(--accent);
     border-color: #35e0ff44;
+  }
+
+  .chip.warn:hover {
+    color: var(--warn);
+    border-color: #ffb54544;
+    background: #ffb54510;
   }
 
   .presets {
@@ -322,7 +374,7 @@
   }
 
   .tuneNote {
-    margin: 12px 0 0;
+    margin: 10px 0 0;
     max-width: 68ch;
     font-size: 11.5px;
     line-height: 1.6;

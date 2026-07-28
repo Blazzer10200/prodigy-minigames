@@ -27,8 +27,8 @@
 <div class="app">
   <aside>
     <div class="brand">
-      <h1>Prodigy <span>4.0</span></h1>
-      <p>minigame practice</p>
+      <h1>Minigame <span>Sandbox</span></h1>
+      <p>practice, offline</p>
     </div>
 
     {#each groups as grp (grp.name)}
@@ -75,13 +75,16 @@
     <header>
       <div class="title">
         <h2>{active.name}</h2>
+        <span class="tagline">{active.tag}</span>
         {#if active.config}<code class="cfg mono">{active.config}</code>{/if}
       </div>
-      <p>{active.blurb}</p>
     </header>
 
+    <!-- the full description lives in the game's own start overlay, where it can
+         quote the numbers you are actually about to play; repeating it here too
+         was the same paragraph twice on screen -->
     {#key activeId + difficulty + applied}
-      <Game {cfg} />
+      <div class="play"><Game {cfg} /></div>
     {/key}
 
     <Tuning game={activeId} {difficulty} onapply={() => applied++} />

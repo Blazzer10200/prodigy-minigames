@@ -28,10 +28,18 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+}
+
 body {
   margin: 0;
-  min-height: 100vh;
-  background: radial-gradient(1100px 600px at 78% -8%, #12293a 0%, transparent 60%), var(--bg);
+  overflow: hidden;
+  background:
+    radial-gradient(1200px 700px at 82% -10%, #12293a 0%, transparent 62%),
+    radial-gradient(900px 520px at 8% 108%, #10202c 0%, transparent 60%),
+    var(--bg);
 }
 
 button {
@@ -224,22 +232,60 @@ kbd {
    Shell
    --------------------------------------------------------------- */
 
+/* The shell fills the viewport at any resolution: the sidebar is a fixed rail
+   that scrolls on its own, and the stage takes every pixel left over. Nothing
+   is centred in a fixed-width column, so a wide monitor gets a big board
+   instead of a small one with margins either side. */
 .app {
   display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
-  gap: 30px;
-  max-width: 1300px;
-  margin: 0 auto;
-  padding: 32px 28px 48px;
+  grid-template-columns: clamp(230px, 17vw, 300px) minmax(0, 1fr);
+  gap: clamp(20px, 2vw, 40px);
+  height: 100%;
+  padding: clamp(18px, 2.2vh, 30px) clamp(20px, 2vw, 40px);
 }
 
 aside {
-  align-self: start;
-  position: sticky;
-  top: 32px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 15px;
+  min-height: 0;
+  padding-right: 6px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #223040 transparent;
+}
+
+aside::-webkit-scrollbar {
+  width: 7px;
+}
+
+aside::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: #223040;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* the stage sits in whatever height is left after the header and the panel */
+.play {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  min-height: 0;
+  animation: rise 0.34s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+/* plain CSS, so this is already global — the game root keeps its own aspect
+   ratio and simply grows to whatever height is on offer */
+.play > * {
+  max-width: 100%;
+  max-height: 100%;
+  height: 100%;
 }
 
 .brand h1 {
@@ -394,7 +440,15 @@ nav {
 }
 
 main header {
-  margin-bottom: 16px;
+  flex: none;
+  margin-bottom: 14px;
+}
+
+.tagline {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .title {
@@ -419,13 +473,6 @@ main header h2 {
   color: #6f8299;
 }
 
-main header p {
-  margin: 6px 0 0;
-  max-width: 72ch;
-  color: var(--muted);
-  font-size: 13.5px;
-  line-height: 1.6;
-}
 
 /* ---------------------------------------------------------------
    Motion
@@ -451,12 +498,26 @@ main header p {
   }
 }
 
+/* narrow screens give up the fixed viewport and scroll normally, so the rail
+   and the stage each get room instead of fighting over one screen's height */
 @media (max-width: 900px) {
+  body {
+    overflow: auto;
+  }
   .app {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100%;
   }
   aside {
-    position: static;
+    overflow: visible;
+  }
+  .play {
+    min-height: 58vh;
+  }
+  .play > * {
+    height: auto;
+    width: 100%;
   }
 }
 

@@ -1,6 +1,6 @@
 import { TUNING } from './tuning.js'
 
-const KEY = 'prodigy-practice-tuning'
+const KEY = 'minigame-sandbox-tuning'
 
 function load() {
   try {

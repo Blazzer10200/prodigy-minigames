@@ -1,4 +1,4 @@
-const KEY = 'prodigy-practice-stats'
+const KEY = 'minigame-sandbox-stats'
 const EMPTY = { attempts: 0, wins: 0, streak: 0, best: 0, recent: [] }
 
 function load() {
