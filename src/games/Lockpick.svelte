@@ -42,10 +42,10 @@
 
   // The dial is drawn in a 400x400 viewBox and scaled to fit by the svg itself.
   const C = 200
-  const R = 176
-  const TR = 27
-  const CORE = 41
-  const RING = 2.2 // approach ring starts this many times the pin radius
+  const R = 178
+  const TR = 25
+  const CORE = 36
+  const RING = 2 // approach ring starts this many times the pin radius
   const TAU = Math.PI * 2
 
   const cfg = $derived(CFG[difficulty])
@@ -84,9 +84,10 @@
   })
 
   function spot() {
-    const near = CORE + TR + 8
-    // pulled in far enough that a fully open approach ring still fits on the dial
-    const far = R - TR - 18
+    // measured off the approach ring, not the pin — at full size the ring is
+    // RING x wider, and letting that reach the hub is what crowded the middle
+    const near = CORE + TR * RING + 6
+    const far = R - TR * RING - 5
 
     for (let i = 0; i < 80; i++) {
       const a = Math.random() * TAU
@@ -451,7 +452,7 @@
   .num {
     fill: #9fd96a;
     font-family: 'Inter', system-ui, sans-serif;
-    font-size: 25px;
+    font-size: 23px;
     font-weight: 700;
     text-anchor: middle;
     dominant-baseline: central;
