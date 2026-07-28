@@ -1,5 +1,5 @@
 <script>
-  import { games } from './lib/games.js'
+  import { games, groups } from './lib/games.js'
   import { bucket, rate, avg, reset } from './lib/stats.svelte.js'
 
   let activeId = $state(games[0].id)
@@ -18,14 +18,19 @@
       <p>minigame practice</p>
     </div>
 
-    <nav>
-      {#each games as g (g.id)}
-        <button class="nav" class:on={g.id === activeId} onclick={() => (activeId = g.id)}>
-          <strong>{g.name}</strong>
-          <em>{g.tag}</em>
-        </button>
-      {/each}
-    </nav>
+    {#each groups as grp (grp.name)}
+      <div class="group">
+        <h3 title={grp.hint}>{grp.name}</h3>
+        <nav>
+          {#each grp.games as g (g.id)}
+            <button class="nav" class:on={g.id === activeId} onclick={() => (activeId = g.id)}>
+              <strong>{g.name}</strong>
+              <em>{g.tag}</em>
+            </button>
+          {/each}
+        </nav>
+      </div>
+    {/each}
 
     <div class="group">
       <label for="diff">Difficulty</label>
@@ -55,7 +60,10 @@
 
   <main>
     <header>
-      <h2>{active.name}</h2>
+      <div class="title">
+        <h2>{active.name}</h2>
+        {#if active.config}<code class="cfg mono">{active.config}</code>{/if}
+      </div>
       <p>{active.blurb}</p>
     </header>
 

@@ -52,17 +52,6 @@ button {
   user-select: none;
 }
 
-.stage::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(#ffffff05 1px, transparent 1px),
-    linear-gradient(90deg, #ffffff05 1px, transparent 1px);
-  background-size: 34px 34px;
-  pointer-events: none;
-}
-
 .hud {
   position: absolute;
   inset: 14px 16px auto 16px;
@@ -159,7 +148,7 @@ aside {
   top: 34px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 18px;
 }
 
 .brand h1 {
@@ -202,13 +191,21 @@ nav { display: flex; flex-direction: column; gap: 6px; }
 
 .nav.on strong { color: var(--accent); }
 
-.group > label {
+.group > label,
+.group > h3 {
   display: block;
-  margin-bottom: 8px;
+  margin: 0 0 8px;
   font-size: 11px;
+  font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.group > h3 {
+  cursor: help;
+  align-self: flex-start;
+  border-bottom: 1px dotted #2b3a4d;
 }
 
 .seg {
@@ -267,10 +264,26 @@ nav { display: flex; flex-direction: column; gap: 6px; }
 
 main header { margin-bottom: 18px; }
 
+.title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+}
+
 main header h2 {
   margin: 0;
   font-size: 24px;
   letter-spacing: 0.01em;
+}
+
+.cfg {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  font-size: 11.5px;
+  color: #6f8299;
 }
 
 main header p {
