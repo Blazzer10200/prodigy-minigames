@@ -8,7 +8,8 @@ The page is server rendered but defeats some extraction tools. Plain `curl`
 returns the whole thing, config blocks and example screenshots included.
 
 Use this as the shopping list when adding a game. Copy the config into the
-component's `normal` preset, then build easy and hard around it.
+game's `normal` entry in `src/lib/tuning.js`, then build easy and hard around
+it. Every value there becomes a slider in the app's tuning panel.
 
 ## Built
 

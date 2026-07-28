@@ -1,16 +1,10 @@
 <script>
   import { record } from '../lib/stats.svelte.js'
+  import { typing } from '../lib/keys.js'
 
-  let { difficulty = 'normal' } = $props()
-
-  // normal mirrors the documented config: { x = 9, y = 9, mineCount = 10 }
-  const CFG = {
-    easy: { x: 9, y: 9, mines: 8 },
-    normal: { x: 9, y: 9, mines: 10 },
-    hard: { x: 12, y: 12, mines: 24 }
-  }
-
-  const cfg = $derived(CFG[difficulty])
+  // normal mirrors the documented config: { x = 9, y = 9, mineCount = 10 }.
+  // Numbers live in lib/tuning.js.
+  let { cfg } = $props()
 
   let phase = $state('idle')
   let cells = $state([])
@@ -21,6 +15,9 @@
   let runStart = 0
 
   const total = $derived(cfg.x * cfg.y)
+  // the first click and its eight neighbours are always safe, so that pocket
+  // caps how many mines a tuned board can actually hold
+  const mines = $derived(Math.max(1, Math.min(cfg.mines, total - 9)))
   const flagged = $derived(cells.filter((c) => c.flag).length)
   const cleared = $derived(cells.filter((c) => c.open).length)
 
@@ -71,7 +68,7 @@
       ;[pool[i], pool[j]] = [pool[j], pool[i]]
     }
 
-    for (const i of pool.slice(0, Math.min(cfg.mines, pool.length))) cells[i].mine = true
+    for (const i of pool.slice(0, Math.min(mines, pool.length))) cells[i].mine = true
     for (let i = 0; i < cells.length; i++) {
       cells[i].near = neighbours(i).filter((n) => cells[n].mine).length
     }
@@ -99,7 +96,7 @@
       }
     }
 
-    if (cells.filter((c) => c.open).length === total - cfg.mines) finish(true)
+    if (cells.filter((c) => c.open).length === total - mines) finish(true)
   }
 
   function flag(e, i) {
@@ -115,6 +112,7 @@
   }
 
   function key(e) {
+    if (typing(e)) return
     if (e.code !== 'Space' && e.code !== 'Enter') return
     e.preventDefault()
     if (phase !== 'playing') start()
@@ -127,9 +125,9 @@
 
 <div class="stage sweeper">
   <div class="hud">
-    <span>Mines <b class="mono">{Math.max(0, cfg.mines - flagged)}</b></span>
+    <span>Mines <b class="mono">{Math.max(0, mines - flagged)}</b></span>
     <span>
-      <b class="mono">{cleared}</b> / {total - cfg.mines} cleared
+      <b class="mono">{cleared}</b> / {total - mines} cleared
       {#if phase === 'playing'}&nbsp;·&nbsp;<b class="mono">{(elapsed / 1000).toFixed(1)}s</b>{/if}
     </span>
   </div>
@@ -160,7 +158,7 @@
       {#if phase === 'idle'}
         <h3>Minesweeper</h3>
         <p>
-          Standard rules on a {cfg.x}×{cfg.y} board with {cfg.mines} mines. Left click clears, right click
+          Standard rules on a {cfg.x}×{cfg.y} board with {mines} mines. Left click clears, right click
           flags. Your first click is always safe.
         </p>
       {:else if phase === 'won'}

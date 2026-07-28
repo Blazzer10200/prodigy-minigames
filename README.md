@@ -35,6 +35,25 @@ the setting that matches the real config wherever one is known.
 Attempts, win rate, streak and average clear time are stored per game in
 `localStorage`.
 
+## Tuning and presets
+
+Every number a game runs on is a slider, in the **Tuning** panel under the
+stage. Ring speed, hit window, board size, time limits — all of it.
+
+- Drag a slider and the game restarts with the new value when you let go. It
+  waits for the release on purpose, so a half-dragged board size never reaches
+  a game that is already running.
+- **Save preset** stores the current numbers under a name. Saving again with
+  the same name overwrites it.
+- Clicking a preset drops its numbers onto whichever difficulty is selected.
+  Presets hold values, not a difficulty, so one can be loaded onto any of them.
+- **Back to easy / normal / hard** throws your edits away and returns to the
+  built-in numbers. Those are read only and can always be recovered this way.
+
+Edits and presets live in `localStorage` under `prodigy-practice-tuning`.
+Values are clamped and snapped to their slider step on load, so a hand-edited
+entry cannot put a game into a state it cannot run.
+
 See [docs/MINIGAMES.md](docs/MINIGAMES.md) for every documented minigame and
 its config, including the fourteen not built yet.
 
@@ -42,29 +61,48 @@ its config, including the fourteen not built yet.
 
 ```
 src/
-  App.svelte          shell — sidebar, difficulty, stats, game switching
-  app.css             design tokens, stage system, shell styling, motion
-  main.js             mount point
-  games/              one component per minigame, self-contained
+  App.svelte           shell — sidebar, difficulty, stats, game switching
+  Tuning.svelte        the slider panel and preset list
+  app.css              design tokens, stage system, shell styling, motion
+  main.js              mount point
+  games/               one component per minigame, self-contained
     Lockpick.svelte
     ShopLockpick.svelte
     MineSweeper.svelte
     Thermite.svelte
     Repair.svelte
   lib/
-    games.js          the registry — grouping, copy, difficulty list
-    stats.svelte.js   localStorage-backed per-game stats
+    games.js           the registry — grouping, copy, difficulty list
+    tuning.js          every game's numbers, and how to render each slider
+    tuning.svelte.js   saved edits and presets, backed by localStorage
+    stats.svelte.js    localStorage-backed per-game stats
 docs/
-  MINIGAMES.md        documented config reference
+  MINIGAMES.md         documented config reference
 ```
+
+No game component holds its own numbers. They all take a single `cfg` prop and
+the shell decides what is in it, which is what makes one tuning panel work for
+every game.
 
 ## Adding a minigame
 
-1. Create `src/games/YourGame.svelte`.
-2. Add an entry to the right group in `src/lib/games.js` with an `id`, `name`,
-   `tag`, `component`, optional `config` string, and a short `blurb`.
+1. Create `src/games/YourGame.svelte`. Take one prop — `let { cfg } = $props()`
+   — and read every number off it. Never hardcode a value you might want to
+   tune later.
+2. Add an entry to `src/lib/tuning.js` keyed by the game id, with a `fields`
+   list (one slider each: `key`, `label`, `min`, `max`, `step`, optional
+   `unit`) and a `base` object holding easy, normal and hard.
+3. Add an entry to the right group in `src/lib/games.js` with an `id`, `name`,
+   `tag`, `component`, optional `config` string, and a short `blurb`. The `id`
+   has to match the key used in step 2.
 
-That is the whole wiring. The shell picks it up automatically.
+That is the whole wiring. The shell picks it up automatically, sliders and
+presets included.
+
+If a tuned value can ask for more than the game can give — more mines than the
+board has room for, more tiles than the grid holds — clamp it in the component
+with a `$derived` and use that everywhere instead of the raw `cfg` value.
+`MineSweeper.svelte` and `Thermite.svelte` both do this.
 
 ## Sizing rules for game components
 

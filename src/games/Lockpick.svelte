@@ -1,44 +1,12 @@
 <script>
   import { record } from '../lib/stats.svelte.js'
-
-  let { difficulty = 'normal' } = $props()
+  import { typing } from '../lib/keys.js'
 
   // Traced from a screen recording of the live game: one circular dial, up to
   // three numbered pins alive at once, clicked in order, then a spin phase.
   // That run was 6 pins in ~5s, which is `normal`. `hard` uses the 10 pins the
-  // prp-minigames docs list for rythmClick.
-  const CFG = {
-    easy: {
-      pins: 5,
-      alive: 3,
-      approach: 1400,
-      perfect: 110,
-      good: 230,
-      gap: 420,
-      turns: 1.5,
-      spinTime: 10000
-    },
-    normal: {
-      pins: 6,
-      alive: 3,
-      approach: 1050,
-      perfect: 80,
-      good: 170,
-      gap: 340,
-      turns: 2,
-      spinTime: 9000
-    },
-    hard: {
-      pins: 10,
-      alive: 4,
-      approach: 760,
-      perfect: 55,
-      good: 120,
-      gap: 240,
-      turns: 2.5,
-      spinTime: 7500
-    }
-  }
+  // prp-minigames docs list for rythmClick. Numbers live in lib/tuning.js.
+  let { cfg } = $props()
 
   // The dial is drawn in a 400x400 viewBox and scaled to fit by the svg itself.
   const C = 200
@@ -47,8 +15,6 @@
   const CORE = 36
   const RING = 2 // approach ring starts this many times the pin radius
   const TAU = Math.PI * 2
-
-  const cfg = $derived(CFG[difficulty])
 
   let phase = $state('idle')
   let live = $state([])
@@ -241,6 +207,7 @@
   }
 
   function key(e) {
+    if (typing(e)) return
     if (e.code !== 'Space' && e.code !== 'Enter') return
     e.preventDefault()
     if (phase !== 'playing' && phase !== 'spin') start()

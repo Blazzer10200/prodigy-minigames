@@ -1,14 +1,27 @@
 <script>
+  import { untrack } from 'svelte'
+  import Tuning from './Tuning.svelte'
   import { games, groups, DIFFICULTIES } from './lib/games.js'
   import { bucket, rate, avg, reset } from './lib/stats.svelte.js'
+  import { settings } from './lib/tuning.svelte.js'
 
   let activeId = $state(games[0].id)
   let difficulty = $state('normal')
+  let applied = $state(0)
 
   const active = $derived(games.find((g) => g.id === activeId))
   const Game = $derived(active.component)
   const b = $derived(bucket(activeId))
   const clear = $derived(avg(b))
+
+  // Reading the store is deliberately untracked: dragging a slider updates it
+  // continuously, and a live board should not be rebuilt halfway through a
+  // drag. `rev` is what makes this recompute, and it only bumps on release.
+  const cfg = $derived(pick(activeId, difficulty, applied))
+
+  function pick(id, d, rev) {
+    return untrack(() => settings(id, d))
+  }
 </script>
 
 <div class="app">
@@ -67,8 +80,10 @@
       <p>{active.blurb}</p>
     </header>
 
-    {#key activeId + difficulty}
-      <Game {difficulty} />
+    {#key activeId + difficulty + applied}
+      <Game {cfg} />
     {/key}
+
+    <Tuning game={activeId} {difficulty} onapply={() => applied++} />
   </main>
 </div>

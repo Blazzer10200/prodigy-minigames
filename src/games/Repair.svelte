@@ -1,15 +1,9 @@
 <script>
   import { record } from '../lib/stats.svelte.js'
+  import { typing } from '../lib/keys.js'
 
-  let { difficulty = 'normal' } = $props()
-
-  const CFG = {
-    easy: { rounds: 3, width: 20, speed: 60, limit: 6000 },
-    normal: { rounds: 3, width: 13, speed: 95, limit: 5000 },
-    hard: { rounds: 4, width: 8, speed: 135, limit: 4000 }
-  }
-
-  const cfg = $derived(CFG[difficulty])
+  // Numbers live in lib/tuning.js.
+  let { cfg } = $props()
 
   let phase = $state('idle')
   let round = $state(1)
@@ -97,6 +91,7 @@
   }
 
   function key(e) {
+    if (typing(e)) return
     if (e.code !== 'Space' && e.code !== 'Enter' && e.code !== 'KeyE') return
     e.preventDefault()
     if (phase === 'playing') commit()

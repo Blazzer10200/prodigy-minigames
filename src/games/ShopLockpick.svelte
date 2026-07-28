@@ -1,22 +1,16 @@
 <script>
   import { record } from '../lib/stats.svelte.js'
+  import { typing } from '../lib/keys.js'
 
-  let { difficulty = 'normal' } = $props()
-
-  // normal is the documented config: { holeCount = 12, speed = Math.PI/1.5, bounce = false }
-  const CFG = {
-    easy: { holes: 8, speed: Math.PI / 2.4, window: 0.24, limit: 40000 },
-    normal: { holes: 12, speed: Math.PI / 1.5, window: 0.17, limit: 35000 },
-    hard: { holes: 14, speed: Math.PI / 1.05, window: 0.12, limit: 30000 }
-  }
+  // normal is the documented config: { holeCount = 12, speed = Math.PI/1.5,
+  // bounce = false }. Numbers live in lib/tuning.js.
+  let { cfg } = $props()
 
   const C = 200
   const R = 176
   const RING = 128
   const HR = 22
   const TAU = Math.PI * 2
-
-  const cfg = $derived(CFG[difficulty])
 
   let phase = $state('idle')
   let angle = $state(0)
@@ -95,6 +89,7 @@
   }
 
   function key(e) {
+    if (typing(e)) return
     if (e.code !== 'KeyE' && e.code !== 'Space' && e.code !== 'Enter') return
     e.preventDefault()
     if (e.repeat) return

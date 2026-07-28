@@ -1,15 +1,9 @@
 <script>
   import { record } from '../lib/stats.svelte.js'
+  import { typing } from '../lib/keys.js'
 
-  let { difficulty = 'normal' } = $props()
-
-  const CFG = {
-    easy: { size: 5, lit: 5, memorise: 3000, solve: 12000 },
-    normal: { size: 5, lit: 7, memorise: 2200, solve: 9000 },
-    hard: { size: 6, lit: 10, memorise: 1800, solve: 8000 }
-  }
-
-  const cfg = $derived(CFG[difficulty])
+  // Numbers live in lib/tuning.js.
+  let { cfg } = $props()
 
   let phase = $state('idle')
   let target = $state([])
@@ -23,6 +17,8 @@
   let runStart = 0
 
   const cells = $derived(cfg.size * cfg.size)
+  // a tuned tile count can ask for more than the grid holds
+  const lit = $derived(Math.min(cfg.lit, cells))
   const left = $derived(Math.max(0, target.length - picked.length))
   const bar = $derived(Math.max(0, Math.min(1, remain / cfg.solve)))
 
@@ -36,7 +32,7 @@
       ;[idx[i], idx[j]] = [idx[j], idx[i]]
     }
 
-    target = idx.slice(0, cfg.lit)
+    target = idx.slice(0, lit)
     picked = []
     wrong = null
     remain = cfg.solve
@@ -81,6 +77,7 @@
   }
 
   function key(e) {
+    if (typing(e)) return
     if (e.code !== 'Space' && e.code !== 'Enter') return
     e.preventDefault()
     if (phase === 'idle' || phase === 'won' || phase === 'lost') start()
@@ -130,8 +127,8 @@
       {#if phase === 'idle'}
         <h3>Thermite</h3>
         <p>
-          {cfg.lit} tiles flash for {(cfg.memorise / 1000).toFixed(1)}s. Once the grid goes dark,
-          click them all back within {cfg.solve / 1000}s. One wrong tile ends the run.
+          {lit} tiles flash for {(cfg.memorise / 1000).toFixed(1)}s. Once the grid goes dark, click
+          them all back within {cfg.solve / 1000}s. One wrong tile ends the run.
         </p>
       {:else if phase === 'won'}
         <h3>Burned Through</h3>
