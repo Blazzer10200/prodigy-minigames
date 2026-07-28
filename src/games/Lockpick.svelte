@@ -10,16 +10,20 @@
     normal: {
       targetCount: 10,
       interval: 300,
-      approach: 950,
+      approach: 900,
       window: 150,
       turns: 2.5,
       spinTime: 8000
     },
-    hard: { targetCount: 14, interval: 240, approach: 800, window: 110, turns: 3, spinTime: 6500 }
+    hard: { targetCount: 14, interval: 240, approach: 750, window: 110, turns: 3, spinTime: 6500 }
   }
 
   const TAU = Math.PI * 2
   const HOLES = 5
+
+  // playfield box + minimum centre-to-centre gap, both as % of the square panel
+  const BOX = { lo: 20, hi: 80 }
+  const MIN_GAP = 28
 
   const cfg = $derived(CFG[difficulty])
 
@@ -39,6 +43,9 @@
 
   const hitAt = (i) => i * cfg.interval + cfg.approach
 
+  // how many circles share the screen at any moment
+  const onScreen = $derived(Math.ceil(cfg.approach / cfg.interval) + 1)
+
   const visible = $derived(
     targets
       .map((t, i) => ({ ...t, i, progress: (now - i * cfg.interval) / cfg.approach }))
@@ -48,17 +55,38 @@
   const spinPct = $derived(Math.min(100, (spun / (cfg.turns * TAU)) * 100))
   const spinLeft = $derived(Math.max(0, cfg.spinTime - (now - spinStart)))
 
+  // Spacing has to hold across every circle still on screen, not just the previous one —
+  // checking only out.at(-1) let non-adjacent circles stack on top of each other.
+  // Best-candidate sampling: keep the roomy picks and choose among them, so the spread is
+  // guaranteed without the layout always snapping to the far corner.
   function build() {
     const out = []
+
     for (let i = 0; i < cfg.targetCount; i++) {
-      let p
-      let tries = 0
-      do {
-        p = { x: 16 + Math.random() * 68, y: 16 + Math.random() * 68 }
-        tries++
-      } while (out.length && Math.hypot(p.x - out.at(-1).x, p.y - out.at(-1).y) < 22 && tries < 40)
-      out.push(p)
+      const live = out.slice(-onScreen)
+      const roomy = []
+      let best = null
+      let bestGap = -1
+
+      for (let c = 0; c < 30; c++) {
+        const p = {
+          x: BOX.lo + Math.random() * (BOX.hi - BOX.lo),
+          y: BOX.lo + Math.random() * (BOX.hi - BOX.lo)
+        }
+
+        let gap = Infinity
+        for (const q of live) gap = Math.min(gap, Math.hypot(p.x - q.x, p.y - q.y))
+
+        if (gap >= MIN_GAP) roomy.push(p)
+        if (gap > bestGap) {
+          bestGap = gap
+          best = p
+        }
+      }
+
+      out.push(roomy.length ? roomy[Math.floor(Math.random() * roomy.length)] : best)
     }
+
     return out
   }
 
@@ -100,7 +128,6 @@
     e.stopPropagation()
     if (phase !== 'click') return
 
-    // clicking out of order is a miss in its own right
     if (i !== index) {
       note = 'out-of-order'
       return finish(false)
@@ -192,16 +219,11 @@
           <button
             class="target"
             class:due={t.i === index}
-            style="left: {t.x}%; top: {t.y}%"
+            style="left: {t.x}%; top: {t.y}%; opacity: {Math.min(1, t.progress * 6)}"
             onpointerdown={(e) => hit(e, t.i)}
             aria-label="Target {t.i + 1}"
           >
-            <span
-              class="ring"
-              style="transform: translate(-50%, -50%) scale({Math.max(
-                1,
-                1 + 2.4 * (1 - t.progress)
-              )})"
+            <span class="ring" style="transform: scale({Math.max(1, 1 + 1.7 * (1 - t.progress))})"
             ></span>
             <span class="core"></span>
             <span class="num mono">{t.i + 1}</span>
@@ -282,9 +304,9 @@
 
   .panel {
     position: relative;
+    overflow: hidden;
     aspect-ratio: 1;
     height: 100%;
-    max-height: 100%;
     border-radius: 16px;
     background: #171a15;
     box-shadow: inset 0 0 40px #0000004d;
@@ -299,34 +321,30 @@
   }
 
   .links line {
-    stroke: #8ede4a66;
-    stroke-width: 0.4;
+    stroke: #8ede4a4d;
+    stroke-width: 0.35;
   }
 
   .target {
     position: absolute;
     z-index: 2;
-    width: 74px;
-    height: 74px;
-    margin: -37px 0 0 -37px;
+    width: 15%;
+    aspect-ratio: 1;
     padding: 0;
     border-radius: 50%;
+    transform: translate(-50%, -50%);
   }
 
   .core,
   .ring,
   .num {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    inset: 0;
+    border-radius: 50%;
   }
 
   .core {
-    width: 74px;
-    height: 74px;
     border: 3px solid #8ede4a;
-    border-radius: 50%;
     background: radial-gradient(circle, #1f2a17 40%, #141810 100%);
     box-shadow:
       0 0 22px -4px #8ede4aaa,
@@ -334,10 +352,7 @@
   }
 
   .ring {
-    width: 74px;
-    height: 74px;
     border: 2px solid #a8e86bcc;
-    border-radius: 50%;
     will-change: transform;
   }
 
@@ -349,7 +364,9 @@
   }
 
   .num {
-    font-size: 21px;
+    display: grid;
+    place-items: center;
+    font-size: clamp(13px, 1.4vw, 22px);
     font-weight: 600;
     color: #eef6e4;
     pointer-events: none;
