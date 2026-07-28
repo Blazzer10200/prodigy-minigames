@@ -149,6 +149,7 @@
 
 <style>
   .thermite {
+    --ar: 1.6;
     aspect-ratio: 16 / 10;
   }
 

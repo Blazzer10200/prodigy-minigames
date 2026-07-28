@@ -94,8 +94,9 @@ every game.
    list (one slider each: `key`, `label`, `min`, `max`, `step`, optional
    `unit`) and a `base` object holding easy, normal and hard.
 3. Add an entry to the right group in `src/lib/games.js` with an `id`, `name`,
-   `tag`, `component`, optional `config` string, and a short `blurb`. The `id`
-   has to match the key used in step 2.
+   `tag`, `component` and an optional `config` string. The `id` has to match the
+   key used in step 2. Descriptions belong in the game's own start overlay, not
+   here — the registry carried one too and it put the same text on screen twice.
 
 That is the whole wiring. The shell picks it up automatically, sliders and
 presets included.
@@ -111,7 +112,11 @@ Sizing content against the browser window instead of against its own frame is
 what caused repeated "it renders outside the box" bugs. The stage system in
 `app.css` exists to make that impossible, so use it:
 
-- Put the aspect ratio on the game's root class. Nothing else goes there.
+- Put the aspect ratio on the game's root class, as **both** `aspect-ratio` and
+  a matching `--ar` decimal (`aspect-ratio: 16 / 10; --ar: 1.6;`). The shell
+  sizes the stage with `min(100%, 100cqw / var(--ar))` so it fills the viewport
+  without stretching, and it cannot read the ratio back out of `aspect-ratio`.
+  Miss `--ar` and the game falls back to 16/9 and will be the wrong shape.
 - Wrap the playable area in `<div class="field">`. It is absolutely positioned
   and already leaves room for the HUD strip.
 - Anything that must stay square gets `class="square"`. It fits its box at any
@@ -131,8 +136,9 @@ Defined once in `app.css` and used by every game:
 `.stage` `.field` `.square` `.fitsvg` `.hud` `.timer` `.overlay` `.btn`
 `.keyhint` `kbd`
 
-Motion is centralised the same way — `fade`, `rise` and `pop` keyframes, plus a
-`prefers-reduced-motion` block that neutralises all of it.
+Motion is centralised the same way — `fade` and `rise` keyframes, plus a
+`prefers-reduced-motion` block that neutralises all of it. A game that needs a
+one-off animation defines it locally rather than adding to the shared set.
 
 ## Accuracy notes
 

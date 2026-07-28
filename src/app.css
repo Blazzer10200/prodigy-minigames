@@ -38,8 +38,7 @@ body {
   overflow: hidden;
   background:
     radial-gradient(1200px 700px at 82% -10%, #12293a 0%, transparent 62%),
-    radial-gradient(900px 520px at 8% 108%, #10202c 0%, transparent 60%),
-    var(--bg);
+    radial-gradient(900px 520px at 8% 108%, #10202c 0%, transparent 60%), var(--bg);
 }
 
 button {
@@ -48,6 +47,14 @@ button {
   cursor: pointer;
   border: 0;
   background: none;
+}
+
+/* buttons here carry no border or background of their own, so without this a
+   keyboard user has almost nothing to follow round the sidebar */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 .mono {
@@ -277,15 +284,20 @@ main {
   flex: 1;
   place-items: center;
   min-height: 0;
+  container-type: size;
   animation: rise 0.34s cubic-bezier(0.2, 0.9, 0.3, 1) both;
 }
 
-/* plain CSS, so this is already global — the game root keeps its own aspect
-   ratio and simply grows to whatever height is on offer */
+/* Plain CSS, so this is already global. Games are not all one shape — 16/9,
+   16/10 and 16/7 are all in use — so the fit is computed from each game's own
+   `--ar` rather than a single hardcoded ratio.
+   Height is whichever is smaller: all the height on offer, or the height that
+   keeps the box inside the container's width. Width then follows from the
+   aspect ratio. Capping with max-width instead would leave the height at 100%
+   and stretch the stage out of shape. */
 .play > * {
-  max-width: 100%;
-  max-height: 100%;
-  height: 100%;
+  height: min(100%, calc(100cqw / var(--ar, 1.778)));
+  width: auto;
 }
 
 .brand h1 {
@@ -473,7 +485,6 @@ main header h2 {
   color: #6f8299;
 }
 
-
 /* ---------------------------------------------------------------
    Motion
    --------------------------------------------------------------- */
@@ -488,13 +499,6 @@ main header h2 {
   from {
     opacity: 0;
     transform: translateY(9px);
-  }
-}
-
-@keyframes pop {
-  from {
-    opacity: 0;
-    transform: scale(0.45);
   }
 }
 

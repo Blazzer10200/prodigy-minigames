@@ -182,6 +182,7 @@
 
 <style>
   .barlock {
+    --ar: 1.778;
     aspect-ratio: 16 / 9;
     background: radial-gradient(circle at 50% 46%, #101a14 0%, #080c0a 70%);
   }

@@ -169,6 +169,7 @@
 
 <style>
   .repair {
+    --ar: 2.286;
     aspect-ratio: 16 / 7;
   }
 

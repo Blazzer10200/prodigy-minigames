@@ -182,6 +182,7 @@
 
 <style>
   .shoplock {
+    --ar: 1.778;
     aspect-ratio: 16 / 9;
     background: radial-gradient(circle at 50% 48%, #1b1e21 0%, #101214 72%);
   }

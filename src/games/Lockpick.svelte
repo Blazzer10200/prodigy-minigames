@@ -336,6 +336,7 @@
 
 <style>
   .lockpick {
+    --ar: 1.778;
     aspect-ratio: 16 / 9;
     background: radial-gradient(circle at 50% 48%, #14180f 0%, #0a0c08 70%);
   }
