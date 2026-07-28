@@ -22,8 +22,8 @@
   const HOLES = 5
 
   // playfield box + minimum centre-to-centre gap, both as % of the square panel
-  const BOX = { lo: 20, hi: 80 }
-  const MIN_GAP = 28
+  const BOX = { lo: 19, hi: 81 }
+  const MIN_GAP = 29
 
   const cfg = $derived(CFG[difficulty])
 
@@ -278,17 +278,20 @@
 <style>
   .lockpick {
     display: grid;
-    place-items: center;
-    aspect-ratio: 16 / 10;
-    padding: 52px 24px 24px;
+    place-items: stretch;
+    aspect-ratio: 4 / 3;
+    padding: 52px 24px 26px;
     background: linear-gradient(180deg, #1b1d19 0%, #131511 100%);
   }
 
+  /* the panel row must be a definite size — its children are all absolutely positioned,
+     so an auto row collapses and `height: 100%` on the panel resolves to nothing */
   .wrap {
     display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
     justify-items: center;
     gap: 14px;
-    height: 100%;
+    min-height: 0;
     z-index: 2;
   }
 
@@ -305,8 +308,9 @@
   .panel {
     position: relative;
     overflow: hidden;
-    aspect-ratio: 1;
     height: 100%;
+    max-width: 100%;
+    aspect-ratio: 1;
     border-radius: 16px;
     background: #171a15;
     box-shadow: inset 0 0 40px #0000004d;
@@ -328,7 +332,7 @@
   .target {
     position: absolute;
     z-index: 2;
-    width: 15%;
+    width: 14%;
     aspect-ratio: 1;
     padding: 0;
     border-radius: 50%;
