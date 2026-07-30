@@ -25,6 +25,7 @@ Requires Node 20 or newer. No other setup.
 | ------------- | -------------- | ------------------------------------------- |
 | Lockpick      | `rythmClick`   | Traced from footage of a real vehicle entry |
 | Shop Lockpick | `shopLockpick` | Built from the documented config            |
+| Bar Lockpick  | `lockpick`     | Built from the documented config            |
 | Minesweeper   | `mineSweeper`  | Built from the documented config            |
 | Thermite      | —              | Approximation, no documented match          |
 | Repair Kit    | —              | Approximation, no documented match          |
@@ -32,6 +33,13 @@ Requires Node 20 or newer. No other setup.
 The sidebar groups games the same way, so you always know how much to trust
 what you are practising on. Every game has easy / normal / hard, and normal is
 the setting that matches the real config wherever one is known.
+
+The vehicle **Lockpick** has two kinds of target. Most are numbered pins with a
+ring closing onto them — click as the ring lands, in numbered order, and the
+rings overlap so the next pin is already closing while you take this one. On
+hard, two of them are a rainbow-shaped track instead: grab the handle and pull
+it round the curve to the right. Cutting straight across the middle does
+nothing, and the pins keep closing while you do it.
 
 Attempts, win rate, streak and average clear time are stored per game in
 `localStorage`.
@@ -69,6 +77,7 @@ src/
   games/               one component per minigame, self-contained
     Lockpick.svelte
     ShopLockpick.svelte
+    BarLockpick.svelte
     MineSweeper.svelte
     Thermite.svelte
     Repair.svelte
@@ -77,6 +86,7 @@ src/
     tuning.js          every game's numbers, and how to render each slider
     tuning.svelte.js   saved edits and presets, backed by localStorage
     stats.svelte.js    localStorage-backed per-game stats
+    keys.js            shared keyboard helpers
 docs/
   MINIGAMES.md         documented config reference
 ```
@@ -124,8 +134,10 @@ what caused repeated "it renders outside the box" bugs. The stage system in
 - For a dial or anything circular, draw an
   `<svg class="fitsvg" viewBox="0 0 400 400">`. An svg with a viewBox scales
   itself down to fit and cannot overflow.
-- Scale text inside a game with `cqmin`. `.field` is a query container, so
-  `cqmin` means "relative to this frame".
+- Scale text with `cqmin`. Both `.stage` and `.field` are query containers, so
+  `cqmin` always means "relative to this frame" — the stage for the HUD and the
+  overlay, the field for anything in the playable area. Sizing that text in
+  `vw` made it track the browser window instead of the box it sits in.
 
 Never use `vh`, `vw`, or fixed pixel sizes for playfield geometry.
 
@@ -149,6 +161,14 @@ Things worth not relearning the hard way:
   passed in per call.
 - The pins are clicked in numbered order, several are on the dial at once, and
   the timing cue is an outer circle closing inward onto the pin.
+- Every pin on the dial closes its **own** ring and they overlap — a pin starts
+  closing about halfway through the one before it. Appearing and starting to
+  close are two different moments, which is why `gap` and `stagger` are
+  separate sliders. Rings land in the order they started, so the pin you owe
+  next is always the one about to close.
+- Harder vehicles mix in a second kind of target: a rainbow-shaped arc dragged
+  left to right, taking a numbered slot in the same sequence. Undocumented —
+  every detail of it is a guess, and `docs/MINIGAMES.md` lists which ones.
 - The finishing spin is **clockwise**.
 - A screen recording beats a documentation screenshot every time. A screenshot
   is one frame of an animation — a shrinking ring caught near the end of its

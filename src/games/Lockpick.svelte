@@ -2,10 +2,11 @@
   import { record } from '../lib/stats.svelte.js'
   import { typing } from '../lib/keys.js'
 
-  // Traced from a screen recording of the live game: one circular dial, up to
-  // three numbered pins alive at once, clicked in order, then a spin phase.
-  // That run was 6 pins in ~5s, which is `normal`. `hard` uses the 10 pins the
-  // prp-minigames docs list for rythmClick. Numbers live in lib/tuning.js.
+  // Traced from a screen recording of the live game: one circular dial, several
+  // numbered pins alive at once with overlapping approach rings, clicked in
+  // order, then a spin phase. `normal` is the 6 pins that run showed, pitched to
+  // its pace; `hard` uses the 10 the prp-minigames docs list for rythmClick and
+  // mixes in the arc drags. Numbers live in lib/tuning.js.
   let { cfg } = $props()
 
   // The dial is drawn in a 400x400 viewBox and scaled to fit by the svg itself.
@@ -16,31 +17,65 @@
   const RING = 2 // approach ring starts this many times the pin radius
   const TAU = Math.PI * 2
 
+  // Harder cars mix in a second kind of target: a rainbow-shaped track with a
+  // handle at the left end that has to be dragged round to the right. Tracing
+  // the curve is the whole skill — the handle only advances while the pointer
+  // is near the arc, so a straight swipe through the middle does nothing.
+  // Undocumented; built from a description of the live game. See docs/MINIGAMES.
+  const ARC_W = 46
+  const ARC_IN = 17 // the numbered circle sits in the mouth of the arch
+  const ARC_D = `M ${-ARC_W} 0 A ${ARC_W} ${ARC_W} 0 0 1 ${ARC_W} 0`
+  const ARC_LEN = Math.PI * ARC_W
+  // most of the arc one pointer event may cover, so a jump from the left end
+  // straight to the right one cannot skip the travel
+  const STEP = 0.12
+  // the far end only measures as exactly 1 with the pointer dead on the
+  // baseline, and a hair below that reads as off the track — so the last sliver
+  // of travel counts as home rather than being unreachable
+  const DONE = 0.94
+  const hx = (t) => ARC_W * Math.cos(Math.PI - t * Math.PI)
+  const hy = (t) => -ARC_W * Math.sin(Math.PI - t * Math.PI)
+
   let phase = $state('idle')
   let live = $state([])
   let pops = $state([])
   let index = $state(1)
   let placed = $state(0)
-  let progress = $state(0)
+  let now = $state(0)
   let grade = $state(null)
   let offset = $state(0)
   let spun = $state(0)
   let spinLeft = $state(0)
   let reason = $state(null)
+  let at = $state(0)
+  let dragLeft = $state(0)
+  let holdFrom = $state(0)
 
   let svg = $state(null)
   let raf = 0
   let popId = 0
   let popTimers = []
   let lastPlaced = 0
-  let liveSince = 0
+  let nextRing = 0
   let runStart = 0
   let spinStart = 0
   let lastAngle = null
+  let dragEnds = 0
+  let dragSlots = new Set()
+  let grab = false
 
+  // a run has to open on an ordinary pin, and the first is never a drag, so
+  // that is the most slots the arcs can take
+  const drags = $derived(Math.max(0, Math.min(cfg.drags, cfg.pins - 1)))
   const spinFrac = $derived(Math.min(1, spun / (cfg.turns * TAU)))
+
+  // Every pin on the dial closes its own ring, and they overlap: pin N's starts
+  // `stagger` of a close time after pin N-1's did, so the next one is already
+  // part way in when you click the current one. Appearing and starting to close
+  // are separate — a pin sits there numbered for a moment first.
+  const prog = (p) => Math.max(0, (now - p.ringAt) / cfg.approach)
   // the ring closes from RING x the pin radius down onto the pin itself
-  const ringR = $derived(TR * Math.max(1, 1 + (RING - 1) * (1 - progress)))
+  const ringR = (p) => TR * (1 + (RING - 1) * Math.max(0, 1 - prog(p)))
   const ticks = Array.from({ length: 8 }, (_, i) => (i * 45 - 90) * (Math.PI / 180))
 
   // dotted route between the pins still on the dial, in click order
@@ -49,27 +84,48 @@
     return seq.slice(0, -1).map((p, i) => ({ a: p, b: seq[i + 1] }))
   })
 
-  function spot() {
-    // measured off the approach ring, not the pin — at full size the ring is
-    // RING x wider, and letting that reach the hub is what crowded the middle
-    const near = CORE + TR * RING + 6
-    const far = R - TR * RING - 5
+  // how much room a target needs around its centre. For a pin that is measured
+  // off the approach ring, not the pin — at full size the ring is RING x wider,
+  // and letting that reach the hub is what crowded the middle
+  const reach = (kind) => (kind === 'drag' ? ARC_W + 6 : TR * RING)
+
+  function spot(kind) {
+    const rr = reach(kind)
+    const near = CORE + rr + 6
+    const far = R - rr - 5
 
     for (let i = 0; i < 80; i++) {
       const a = Math.random() * TAU
       const d = near + Math.random() * (far - near)
       const p = { x: C + d * Math.cos(a), y: C + d * Math.sin(a) }
-      if (live.every((q) => Math.hypot(q.x - p.x, q.y - p.y) >= TR * 2 + 10)) return p
+      if (live.every((q) => Math.hypot(q.x - p.x, q.y - p.y) >= rr + reach(q.kind) + 10)) return p
     }
     return null
   }
 
-  function addPin(now) {
-    const p = spot()
+  /** Which slots in the run are arc drags. Never the first — you get oriented. */
+  function pickDrags() {
+    const pool = []
+    for (let n = 2; n <= cfg.pins; n++) pool.push(n)
+
+    const out = new Set()
+    for (let i = 0; i < Math.min(drags, pool.length); i++) {
+      out.add(pool.splice(Math.floor(Math.random() * pool.length), 1)[0])
+    }
+    return out
+  }
+
+  function addPin(t) {
+    const kind = dragSlots.has(placed + 1) ? 'drag' : 'click'
+    const p = spot(kind)
     if (!p) return
     placed++
-    live = [...live, { n: placed, x: p.x, y: p.y }]
-    lastPlaced = now
+    // never hand a target a ring that is already part closed — if the dial was
+    // full the schedule can fall behind the spawn, and it catches up from here
+    const ringAt = placed === 1 ? t : Math.max(t, nextRing)
+    nextRing = ringAt + cfg.approach * cfg.stagger
+    live = [...live, { n: placed, kind, x: p.x, y: p.y, ringAt }]
+    lastPlaced = t
   }
 
   function start() {
@@ -83,23 +139,54 @@
     grade = null
     offset = 0
     lastAngle = null
-    progress = 0
+    at = 0
+    grab = false
+    holdFrom = 0
+    dragLeft = 0
+    dragSlots = pickDrags()
     phase = 'playing'
 
-    const now = performance.now()
-    runStart = now
-    liveSince = now
-    lastPlaced = now - cfg.gap
+    const t = performance.now()
+    now = t
+    runStart = t
+    nextRing = t
+    lastPlaced = t - cfg.gap
     raf = requestAnimationFrame(frame)
   }
 
   function frame(t) {
     if (phase !== 'playing') return
 
-    if (live.length < cfg.alive && placed < cfg.pins && t - lastPlaced >= cfg.gap) addPin(t)
+    const cur = live.find((p) => p.n === index)
+    const arc = cur?.kind === 'drag' && (holdFrom || t >= cur.ringAt)
 
-    progress = (t - liveSince) / cfg.approach
-    if (progress > 1 + cfg.good / cfg.approach) {
+    if (arc && !holdFrom) {
+      holdFrom = t
+      dragEnds = t + cfg.dragTime
+      at = 0 // a run can hold more than one, so each starts its own travel
+    }
+
+    // With the hold on, `now` stops where it is, so every other ring keeps its
+    // place and the schedule is pushed forward once the handle lands. With it
+    // off the dial carries on regardless and the pattern has to be kept going
+    // around the drag, which is what the live game looks like.
+    const held = arc && cfg.dragHold >= 1
+    if (!held) {
+      now = t
+      if (live.length < cfg.alive && placed < cfg.pins && t - lastPlaced >= cfg.gap) addPin(t)
+    }
+
+    if (arc) {
+      dragLeft = dragEnds - t
+      if (dragLeft <= 0) {
+        dragLeft = 0
+        grade = 'TOO SLOW'
+        reason = 'drag'
+        return finish(false)
+      }
+    } else if (cur && t - cur.ringAt > cfg.approach + cfg.good) {
+      // rings land in the order they started, so the pin you owe is always the
+      // one about to close — no need to watch the others
       offset = Math.round(cfg.good)
       grade = 'TOO LATE'
       reason = 'late'
@@ -119,8 +206,9 @@
       return finish(false)
     }
 
-    // how far the ring was from landing on the pin, in milliseconds
-    const err = (progress - 1) * cfg.approach
+    // how far the ring was from landing on the pin, in milliseconds — read off
+    // the clock rather than the last frame, so a click is not rounded to 16ms
+    const err = performance.now() - pin.ringAt - cfg.approach
     offset = Math.round(err)
 
     if (Math.abs(err) > cfg.good) {
@@ -138,10 +226,79 @@
 
     live = live.filter((p) => p.n !== pin.n)
     index++
-    liveSince = performance.now()
-    progress = 0
 
     if (index > cfg.pins) toSpin()
+  }
+
+  function grabHandle(e, pin) {
+    e.stopPropagation()
+    if (phase !== 'playing') return
+
+    if (pin.n !== index) {
+      grade = 'WRONG PIN'
+      reason = 'order'
+      return finish(false)
+    }
+    grab = true
+  }
+
+  // letting go leaves the handle where it got to — the clock is the pressure,
+  // not the grip
+  const release = () => (grab = false)
+
+  function dragMove(e, pin) {
+    const ctm = svg?.getScreenCTM()
+    if (!ctm) return
+
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse())
+    const lx = p.x - pin.x
+    const ly = p.y - pin.y
+
+    // only tracks while the pointer is on the curve, so a straight swipe across
+    // the middle of the rainbow moves nothing
+    if (Math.abs(Math.hypot(lx, ly) - ARC_W) > cfg.dragTol) return
+
+    // measured round the arc rather than across it, so the near-vertical ends
+    // read as cleanly as the top does. Below the baseline is off the track.
+    const raw = (Math.PI - Math.atan2(-ly, lx)) / Math.PI
+    if (raw < 0 || raw > 1) return
+
+    if (raw > at) at = Math.min(raw, at + STEP)
+    if (at >= DONE) {
+      at = 1
+      landDrag(pin)
+    }
+  }
+
+  function landDrag(pin) {
+    // only a held dial owes catching up — if it kept running, the pins carried
+    // on while you dragged and that is the whole point
+    const elapsed = cfg.dragHold >= 1 ? performance.now() - holdFrom : 0
+    grab = false
+    holdFrom = 0
+    grade = 'PULLED'
+
+    const id = ++popId
+    pops = [...pops, { id, x: pin.x, y: pin.y }]
+    popTimers.push(setTimeout(() => (pops = pops.filter((p) => p.id !== id)), 420))
+
+    live = live
+      .filter((p) => p.n !== pin.n)
+      .map((p) => (elapsed ? { ...p, ringAt: p.ringAt + elapsed } : p))
+    nextRing += elapsed
+    lastPlaced += elapsed
+    now = performance.now()
+    index++
+
+    if (index > cfg.pins) toSpin()
+  }
+
+  function move(e) {
+    if (phase === 'spin') return stir(e)
+    if (phase !== 'playing' || !grab) return
+
+    const cur = live.find((p) => p.n === index)
+    if (cur?.kind === 'drag') dragMove(e, cur)
   }
 
   function toSpin() {
@@ -216,18 +373,20 @@
   $effect(() => stop)
 </script>
 
-<svelte:window onkeydown={key} />
+<svelte:window onkeydown={key} onpointerup={release} />
 
-<div class="stage lockpick" onpointermove={stir} role="presentation">
+<div class="stage lockpick" onpointermove={move} role="presentation">
   <div class="hud">
     <span>
-      {#if phase === 'spin'}Spin clockwise{:else}Pin
+      {#if phase === 'spin'}Spin clockwise{:else if holdFrom}Drag it right{:else}Pin
         <b class="mono">{Math.min(index, cfg.pins)}</b> / {cfg.pins}{/if}
     </span>
     {#if phase === 'spin'}
       <span><b class="mono">{(spinLeft / 1000).toFixed(1)}s</b></span>
+    {:else if holdFrom}
+      <span><b class="mono">{(dragLeft / 1000).toFixed(1)}s</b></span>
     {:else if grade}
-      <span class="grade" class:ok={grade === 'PERFECT' || grade === 'GOOD'}>
+      <span class="grade" class:ok={grade === 'PERFECT' || grade === 'GOOD' || grade === 'PULLED'}>
         {grade}
         {#if grade === 'GOOD' || grade === 'TOO EARLY' || grade === 'TOO LATE'}
           <b class="mono">{offset > 0 ? '+' : ''}{offset}ms</b>
@@ -279,20 +438,46 @@
         {/each}
 
         {#each live as p (p.n)}
-          <g
-            class="pin"
-            class:live={p.n === index}
-            onpointerdown={(e) => tap(e, p)}
-            role="button"
-            tabindex="-1"
-            aria-label="Pin {p.n}"
-          >
-            <circle cx={p.x} cy={p.y} r={TR} class="core" />
-            {#if p.n === index}
-              <circle cx={p.x} cy={p.y} r={ringR} class="approach" />
-            {/if}
-            <text x={p.x} y={p.y} class="num">{p.n}</text>
-          </g>
+          {#if p.kind === 'drag'}
+            <g transform="translate({p.x} {p.y})">
+              <g class="arc" class:live={p.n === index}>
+                <path d={ARC_D} class="arctrack" />
+                <path
+                  d={ARC_D}
+                  class="arcfill"
+                  stroke-dasharray={ARC_LEN}
+                  stroke-dashoffset={ARC_LEN * (1 - (p.n === index ? at : 0))}
+                />
+                <circle cx="0" cy={-ARC_IN} r="14" class="core" />
+                <text x="0" y={-ARC_IN} class="num">{p.n}</text>
+                <circle
+                  cx={hx(p.n === index ? at : 0)}
+                  cy={hy(p.n === index ? at : 0)}
+                  r="12"
+                  class="handle"
+                  onpointerdown={(e) => grabHandle(e, p)}
+                  role="button"
+                  tabindex="-1"
+                  aria-label="Drag target {p.n}"
+                />
+              </g>
+            </g>
+          {:else}
+            <g
+              class="pin"
+              class:live={p.n === index}
+              onpointerdown={(e) => tap(e, p)}
+              role="button"
+              tabindex="-1"
+              aria-label="Pin {p.n}"
+            >
+              <circle cx={p.x} cy={p.y} r={TR} class="core" />
+              {#if now >= p.ringAt}
+                <circle cx={p.x} cy={p.y} r={ringR(p)} class="approach" />
+              {/if}
+              <text x={p.x} y={p.y} class="num">{p.n}</text>
+            </g>
+          {/if}
         {/each}
       {/if}
 
@@ -308,8 +493,14 @@
       {#if phase === 'idle'}
         <h3>Lockpick</h3>
         <p>
-          Pins appear on the dial, up to {cfg.alive} at a time. Each one you need next has an outer circle
-          closing in on it — click the moment that circle lands on the pin. Take them in numbered order.
+          Pins appear on the dial, up to {cfg.alive} at a time. Each one gets an outer circle that closes
+          in on it — click the moment that circle lands. They overlap, so the next pin is already closing
+          while you deal with this one. Take them in numbered order.
+          {#if drags > 0}
+            {drags === 1 ? 'One of them is' : `${drags} of them are`} a rainbow track instead: grab the
+            handle and pull it round the curve to the right end before the clock runs out. Cut across
+            the middle and it will not budge. The rest of the dial waits while you do it.
+          {/if}
           Clear all {cfg.pins} and the barrel starts turning: swirl the mouse clockwise until it reads
           OPEN.
         </p>
@@ -323,9 +514,11 @@
             ? 'Wrong pin. They have to go in order, lowest number first.'
             : reason === 'time'
               ? 'The barrel stalled. Bigger, faster circles turn it quicker.'
-              : reason === 'early'
-                ? 'Too early. Let the circle come all the way in before you click.'
-                : 'Too late. Click as the circle lands, not after it has closed.'}
+              : reason === 'drag'
+                ? 'The handle never made it round. Follow the curve — it only moves while you are on it.'
+                : reason === 'early'
+                  ? 'Too early. Let the circle come all the way in before you click.'
+                  : 'Too late. Click as the circle lands, not after it has closed.'}
         </p>
       {/if}
       <button class="btn" onclick={start}>{phase === 'idle' ? 'Start' : 'Retry'}</button>
@@ -442,12 +635,74 @@
     fill: #8ee03a4d;
   }
 
-  /* the outer circle closes inward and you click as it lands on the pin */
+  /* the outer circle closes inward and you click as it lands on the pin. Every
+     live pin has one; the pin you owe next is the bright one */
   .approach {
     fill: none;
+    stroke: #d8ffa859;
+    stroke-width: 1.8;
+    pointer-events: none;
+  }
+
+  .pin.live .approach {
     stroke: #d8ffa8;
     stroke-width: 2.2;
-    pointer-events: none;
+  }
+
+  /* the rainbow track. Animating it needs its own group — the translate that
+     places it lives on the parent, and a css transform would wipe that out */
+  .arc {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pin-in 0.22s cubic-bezier(0.2, 1.1, 0.4, 1) both;
+  }
+
+  .arctrack {
+    fill: none;
+    stroke: #8ee03a2e;
+    stroke-width: 9;
+    stroke-linecap: round;
+  }
+
+  .arcfill {
+    fill: none;
+    stroke: #8ee03a5c;
+    stroke-width: 9;
+    stroke-linecap: round;
+  }
+
+  .arc.live .arctrack {
+    stroke: #8ee03a47;
+  }
+
+  .arc.live .arcfill {
+    stroke: #b6f562;
+  }
+
+  .arc.live .core {
+    fill: #8ee03a3d;
+    stroke: #b6f562;
+    stroke-width: 2.6;
+  }
+
+  .arc.live .num {
+    fill: #ecffd6;
+  }
+
+  .handle {
+    fill: #0c1207;
+    stroke: #8ee03a80;
+    stroke-width: 2.4;
+    cursor: grab;
+  }
+
+  .arc.live .handle {
+    fill: #1b2a10;
+    stroke: #d8ffa8;
+  }
+
+  .arc.live .handle:active {
+    cursor: grabbing;
   }
 
   .pop {

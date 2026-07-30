@@ -60,7 +60,48 @@ export const TUNING = {
         max: 900,
         step: 10,
         unit: 'ms',
-        help: 'How long before the next pin appears.'
+        help: 'How long before the next pin appears. It sits there numbered until its ring starts.'
+      },
+      {
+        key: 'stagger',
+        label: 'Ring overlap',
+        min: 0.3,
+        max: 1,
+        step: 0.05,
+        help: 'When a pin starts closing, as a share of the pin before it. 0.5 starts it halfway through the one before; 1 waits for that one to land first.'
+      },
+      {
+        key: 'drags',
+        label: 'Drag targets',
+        min: 0,
+        max: 6,
+        step: 1,
+        help: 'How many of the pins are a rainbow track to drag instead of a pin to click. The first is never one.'
+      },
+      {
+        key: 'dragTime',
+        label: 'Drag time',
+        min: 1000,
+        max: 8000,
+        step: 100,
+        unit: 'ms',
+        help: 'How long you get to pull the handle round to the right. The rest of the dial waits while you do.'
+      },
+      {
+        key: 'dragTol',
+        label: 'Drag tolerance',
+        min: 6,
+        max: 40,
+        step: 1,
+        help: 'How far off the curve the pointer can stray and still pull the handle. Lower means tracing it properly.'
+      },
+      {
+        key: 'dragHold',
+        label: 'Dial waits during a drag',
+        min: 0,
+        max: 1,
+        step: 1,
+        help: 'Off, the pins carry on closing while you drag and you have to keep the pattern going. On, the dial freezes until the handle lands.'
       },
       {
         key: 'turns',
@@ -88,26 +129,41 @@ export const TUNING = {
         perfect: 110,
         good: 230,
         gap: 420,
+        stagger: 0.75,
+        drags: 0,
+        dragTime: 5000,
+        dragTol: 26,
+        dragHold: 0,
         turns: 1.5,
         spinTime: 10000
       },
       normal: {
         pins: 6,
         alive: 3,
-        approach: 1050,
-        perfect: 80,
-        good: 170,
-        gap: 340,
+        approach: 880,
+        perfect: 74,
+        good: 155,
+        gap: 310,
+        stagger: 0.5,
+        drags: 0,
+        dragTime: 4200,
+        dragTol: 20,
+        dragHold: 0,
         turns: 2,
         spinTime: 9000
       },
       hard: {
         pins: 10,
         alive: 4,
-        approach: 760,
-        perfect: 55,
-        good: 120,
-        gap: 240,
+        approach: 620,
+        perfect: 50,
+        good: 110,
+        gap: 210,
+        stagger: 0.45,
+        drags: 2,
+        dragTime: 3200,
+        dragTol: 15,
+        dragHold: 0,
         turns: 2.5,
         spinTime: 7500
       }

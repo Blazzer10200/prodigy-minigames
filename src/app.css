@@ -77,6 +77,10 @@ button {
 .stage {
   position: relative;
   overflow: hidden;
+  /* the HUD and the overlay live here rather than in `.field`, so the stage is
+     a query container too — that way their text scales with the box instead of
+     with the browser window, same rule the playfields already follow */
+  container-type: size;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: linear-gradient(180deg, #0f1620 0%, #0a0f16 100%);
@@ -118,7 +122,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-size: 12px;
+  font-size: clamp(9px, 2.4cqmin, 13px);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted);
@@ -167,7 +171,7 @@ button {
 
 .overlay h3 {
   margin: 0;
-  font-size: clamp(22px, 3.4vw, 30px);
+  font-size: clamp(18px, 6.2cqmin, 32px);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   animation: rise 0.28s cubic-bezier(0.2, 0.9, 0.3, 1) both;
@@ -177,7 +181,7 @@ button {
   margin: 0;
   max-width: 46ch;
   color: var(--muted);
-  font-size: 14px;
+  font-size: clamp(11.5px, 3cqmin, 14.5px);
   line-height: 1.6;
   animation: rise 0.28s cubic-bezier(0.2, 0.9, 0.3, 1) 0.04s both;
 }
@@ -195,9 +199,9 @@ button {
 }
 
 .btn {
-  padding: 11px 26px;
+  padding: clamp(8px, 2.2cqmin, 12px) clamp(18px, 5.6cqmin, 28px);
   border-radius: 999px;
-  font-size: 13px;
+  font-size: clamp(11px, 2.6cqmin, 13.5px);
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -219,7 +223,7 @@ button {
 }
 
 .keyhint {
-  font-size: 11px;
+  font-size: clamp(9px, 2.1cqmin, 11.5px);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #55657c;
@@ -375,9 +379,21 @@ nav {
 }
 
 .group > h3 {
-  align-self: flex-start;
-  cursor: help;
-  border-bottom: 1px dotted #2b3a4d;
+  margin-bottom: 4px;
+}
+
+/* How closely a group matches the real thing is the whole point of the
+   sidebar, so the caveat is on screen rather than hidden in a tooltip */
+.groupHint,
+.segNote {
+  margin: 0 0 8px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: #55657c;
+}
+
+.segNote {
+  margin: 8px 0 0;
 }
 
 .seg {

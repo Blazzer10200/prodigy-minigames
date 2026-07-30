@@ -33,10 +33,16 @@
 
     {#each groups as grp (grp.name)}
       <div class="group">
-        <h3 title={grp.hint}>{grp.name}</h3>
+        <h3>{grp.name}</h3>
+        <p class="groupHint">{grp.hint}</p>
         <nav>
           {#each grp.games as g (g.id)}
-            <button class="nav" class:on={g.id === activeId} onclick={() => (activeId = g.id)}>
+            <button
+              class="nav"
+              class:on={g.id === activeId}
+              aria-pressed={g.id === activeId}
+              onclick={() => (activeId = g.id)}
+            >
               <strong>{g.name}</strong>
               <em>{g.tag}</em>
             </button>
@@ -49,9 +55,16 @@
       <label for="diff">Difficulty</label>
       <div class="seg" id="diff">
         {#each DIFFICULTIES as d (d)}
-          <button class:on={difficulty === d} onclick={() => (difficulty = d)}>{d}</button>
+          <button
+            class:on={difficulty === d}
+            aria-pressed={difficulty === d}
+            onclick={() => (difficulty = d)}>{d}</button
+          >
         {/each}
       </div>
+      {#if active.config}
+        <p class="segNote">Normal is the one built to match the documented config.</p>
+      {/if}
     </div>
 
     <div class="group">
